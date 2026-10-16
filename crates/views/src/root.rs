@@ -935,7 +935,7 @@ impl Render for Root {
                 log::debug!(
                     "diag: key {} focused={:?}",
                     event.keystroke,
-                    window.focused(cx).map(|focus| focus.id)
+                    window.focused(cx)
                 );
                 if event.keystroke.key == "escape" && ui::cancel_middle_scroll(cx) {
                     window.refresh();
