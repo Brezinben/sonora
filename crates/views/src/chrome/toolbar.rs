@@ -112,6 +112,11 @@ impl Toolbar {
     }
 
     pub fn focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        log::debug!(
+            "diag: toolbar focus, apply={} open={}",
+            self.apply.is_some(),
+            self.open
+        );
         if self.apply.is_none() {
             return;
         }

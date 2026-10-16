@@ -425,6 +425,10 @@ impl Root {
     }
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        log::debug!(
+            "diag: open_filter called, toolbar={}",
+            self.toolbar.is_some()
+        );
         let Some(toolbar) = self.toolbar.clone() else {
             return;
         };
@@ -928,6 +932,11 @@ impl Render for Root {
                 }
             })
             .capture_key_down(|event, window, cx| {
+                log::debug!(
+                    "diag: key {} focused={:?}",
+                    event.keystroke,
+                    window.focused(cx).map(|focus| focus.id)
+                );
                 if event.keystroke.key == "escape" && ui::cancel_middle_scroll(cx) {
                     window.refresh();
                     cx.stop_propagation();
