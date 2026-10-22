@@ -203,11 +203,10 @@ fn main() -> ExitCode {
         }
 
         // Commands skip the open batching, since nothing arrives in bursts there.
+        let control = Sonora::global(cx).control.clone();
         cx.spawn(async move |cx| {
             while let Some((request, reply)) = commands.recv().await {
-                reply
-                    .send(cx.update(|cx| state::answer_command(request, cx)))
-                    .ok();
+                control.update(cx, |control, cx| control.answer(request, reply, cx));
             }
         })
         .detach();
@@ -294,6 +293,7 @@ fn show_window(cx: &mut App) {
 fn open_window(cx: &mut App) {
     let Sonora {
         session,
+        control: _,
         cover: _,
         devices: _,
         downloads: _,

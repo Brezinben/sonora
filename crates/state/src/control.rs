@@ -1,21 +1,181 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use cli::commands::{self, Item, Level, PlaybackCommand, QueueCommand, Request, Switch};
 use cli::wire::{self, Current, Failure, Reply, State, Value};
-use gpui::{App, Context};
-use music::Track;
+use futures::future;
+use gpui::{App, Context, Entity, Task};
 use music::link::Linked;
+use music::{MusicApi, MusicProvider, Track};
+use tokio::sync::oneshot;
 
-use crate::{Origin, Playback, PlaybackState, Repeat, Sonora};
+use crate::{Io, Origin, Playback, PlaybackState, Repeat, Session, join, noted};
 
-/// Carries out a command the command line sent and says what to answer it. Playback goes
-/// through `Playback`, so a device steered over Connect is the one that obeys.
-pub fn answer(request: Request, cx: &mut App) -> Reply {
-    let playback = Sonora::global(cx).playback.clone();
-    match request {
-        Request::Playback(command) => {
-            playback.update(cx, |playback, cx| play(playback, command, cx))
+/// Carries out what the command line asks of the running Sonora. Playback goes through
+/// `Playback`, so a device steered over Connect is the one that obeys. A command that fetches
+/// tracks first answers once they are queued, so a failure reaches the terminal.
+pub struct Control {
+    session: Entity<Session>,
+    playback: Entity<Playback>,
+    /// Queue commands still fetching, each removing itself once it answers.
+    queueing: HashMap<u64, Task<()>>,
+    issued: u64,
+}
+
+/// An item to queue, checked on the main thread and fetched on tokio.
+enum Source {
+    Path(PathBuf),
+    /// The link as typed, for the failure that names it, and what it points at.
+    Link(String, Linked),
+}
+
+/// The tracks one item stands for, and the collection they came from.
+struct Batch {
+    tracks: Vec<Track>,
+    origin: Option<Origin>,
+}
+
+/// Why an item could not be fetched, with the network error behind it for `Network` to hear.
+struct Missed {
+    failure: Failure,
+    error: Option<anyhow::Error>,
+}
+
+impl Control {
+    pub fn new(session: Entity<Session>, playback: Entity<Playback>) -> Self {
+        Self {
+            session,
+            playback,
+            queueing: HashMap::new(),
+            issued: 0,
         }
-        Request::Queue(command) => queue(command, cx),
-        Request::Provider | Request::Search => Reply::Failed(Failure::Unsupported),
+    }
+
+    /// Carries out `request` and sends what to answer it into `reply`, at once or, for a
+    /// command that fetches, once it is done.
+    pub fn answer(
+        &mut self,
+        request: Request,
+        reply: oneshot::Sender<Reply>,
+        cx: &mut Context<Self>,
+    ) {
+        let answer = match request {
+            Request::Playback(command) => self
+                .playback
+                .update(cx, |playback, cx| play(playback, command, cx)),
+            Request::Queue(command) => return self.queue(command, reply, cx),
+            Request::Provider | Request::Search => Reply::Failed(Failure::Unsupported),
+        };
+        reply.send(answer).ok();
+    }
+
+    /// Fetches every item at once and queues them together, in the order they were given. One
+    /// that fails refuses the whole command, so nothing is queued half.
+    fn queue(
+        &mut self,
+        command: QueueCommand,
+        reply: oneshot::Sender<Reply>,
+        cx: &mut Context<Self>,
+    ) {
+        let (items, next) = match command {
+            QueueCommand::Add(items) => (items, false),
+            QueueCommand::PlayNext(items) => (items, true),
+        };
+        let sources = items
+            .into_iter()
+            .map(|item| self.source(item, cx))
+            .collect::<Result<Vec<_>, _>>();
+        let sources = match sources {
+            Ok(sources) => sources,
+            Err(failure) => {
+                reply.send(Reply::Failed(failure)).ok();
+                return;
+            }
+        };
+
+        let session = self.session.read(cx);
+        let local = session.local_provider();
+        let client = session.client();
+        let fetch = Io::global(cx).spawn(async move {
+            let fetches = sources
+                .into_iter()
+                .map(|source| fetch(source, &local, client.as_ref()));
+            anyhow::Ok(future::try_join_all(fetches).await)
+        });
+        let key = self.issued;
+        self.issued += 1;
+        let task = cx.spawn(async move |this, cx| {
+            let fetched = join(fetch).await;
+            this.update(cx, |this, cx| {
+                let answer = match fetched {
+                    Ok(Ok(batches)) => {
+                        this.place(batches, next, cx);
+                        Reply::Done
+                    }
+                    Ok(Err(missed)) => {
+                        if let Some(error) = &missed.error {
+                            noted(error, cx);
+                        }
+                        Reply::Failed(missed.failure)
+                    }
+                    Err(error) => {
+                        log::warn!("control: cannot queue: {error:#}");
+                        Reply::Failed(Failure::Malformed)
+                    }
+                };
+                reply.send(answer).ok();
+                this.queueing.remove(&key);
+            })
+            .ok();
+        });
+        self.queueing.insert(key, task);
+    }
+
+    /// Checks an item before anything is fetched: a link has to be a track, album, playlist or
+    /// artist of the provider signed in now.
+    fn source(&self, item: Item, cx: &App) -> Result<Source, Failure> {
+        let link = match item {
+            Item::Path(path) => return Ok(Source::Path(path)),
+            Item::Link(link) => link,
+        };
+        let session = self.session.read(cx);
+        let Some((slug, linked)) = session.read_link(&link) else {
+            return Err(Failure::Unqueueable(link));
+        };
+        let current = session.provider_slug().ok_or(Failure::SignedOut)?;
+        if slug != current {
+            let name = |slug: &'static str| session.account(slug).map_or(slug, |(name, _)| name);
+            return Err(Failure::OtherProvider {
+                link: name(slug).to_owned(),
+                current: name(current).to_owned(),
+            });
+        }
+        if session.client().is_none() {
+            return Err(Failure::SignedOut);
+        }
+        match linked {
+            Linked::Track(_) | Linked::Album(_) | Linked::Playlist(_) | Linked::Artist(_) => {
+                Ok(Source::Link(link, linked))
+            }
+            Linked::User(_) | Linked::Jam(_) | Linked::Short => Err(Failure::Unqueueable(link)),
+        }
+    }
+
+    /// Queues what was fetched in one go, so the items keep their order and one toast tells
+    /// of them. A lone collection keeps its origin, several mixed ones have none.
+    fn place(&self, batches: Vec<Batch>, next: bool, cx: &mut App) {
+        let (tracks, origin) = match <[Batch; 1]>::try_from(batches) {
+            Ok([batch]) => (batch.tracks, batch.origin),
+            Err(batches) => (
+                batches.into_iter().flat_map(|batch| batch.tracks).collect(),
+                None,
+            ),
+        };
+        self.playback.update(cx, |playback, cx| match next {
+            true => playback.play_next_all(tracks, origin, cx),
+            false => playback.enqueue_all(tracks, origin, cx),
+        });
     }
 }
 
@@ -60,81 +220,6 @@ fn play(playback: &mut Playback, command: PlaybackCommand, cx: &mut Context<Play
         }
     }
     Reply::Done
-}
-
-/// Queues files and a link. The link is read before anything is queued, so a bad one refuses
-/// the whole command; what fails later, a file that does not read or a fetch, is told on a
-/// toast in the app. Files and the link are fetched apart, so they may land in either order.
-fn queue(command: QueueCommand, cx: &mut App) -> Reply {
-    let (items, next) = match command {
-        QueueCommand::Add(items) => (items, false),
-        QueueCommand::PlayNext(items) => (items, true),
-    };
-    let mut paths = Vec::new();
-    let mut links = Vec::new();
-    for item in items {
-        match item {
-            Item::Path(path) => paths.push(path),
-            Item::Link(link) => links.push(link),
-        }
-    }
-    let linked = match links.as_slice() {
-        [] => None,
-        [link] => match read(link, cx) {
-            Ok(linked) => Some(linked),
-            Err(failure) => return Reply::Failed(failure),
-        },
-        _ => return Reply::Failed(Failure::ManyLinks),
-    };
-
-    let playback = Sonora::global(cx).playback.clone();
-    playback.update(cx, |playback, cx| {
-        match (paths.is_empty(), next) {
-            (true, _) => {}
-            (false, true) => playback.play_paths_next(paths, cx),
-            (false, false) => playback.enqueue_paths(paths, cx),
-        }
-        match (linked, next) {
-            (None, _) => {}
-            (Some(Linked::Track(id)), true) => playback.play_track_next(id, cx),
-            (Some(Linked::Track(id)), false) => playback.enqueue_track(id, cx),
-            (Some(Linked::Album(id)), true) => playback.play_album_next(Origin::album(id), cx),
-            (Some(Linked::Album(id)), false) => playback.enqueue_album(Origin::album(id), cx),
-            (Some(Linked::Playlist(id)), true) => {
-                playback.play_playlist_next(Origin::playlist(id), cx)
-            }
-            (Some(Linked::Playlist(id)), false) => {
-                playback.enqueue_playlist(Origin::playlist(id), cx)
-            }
-            (Some(Linked::Artist(id)), true) => playback.play_artist_next(Origin::artist(id), cx),
-            (Some(Linked::Artist(id)), false) => playback.enqueue_artist(Origin::artist(id), cx),
-            (Some(Linked::User(_) | Linked::Jam(_) | Linked::Short), _) => {}
-        }
-    });
-    Reply::Done
-}
-
-/// What a link to queue points at, refused unless it is a track, album, playlist or artist of
-/// the provider signed in now.
-fn read(link: &str, cx: &App) -> Result<Linked, Failure> {
-    let session = Sonora::global(cx).session.read(cx);
-    let unqueueable = || Failure::Unqueueable(link.to_owned());
-    let (slug, linked) = session.read_link(link).ok_or_else(unqueueable)?;
-    let current = session.provider_slug().ok_or(Failure::SignedOut)?;
-    if slug != current {
-        let name = |slug: &'static str| session.account(slug).map_or(slug, |(name, _)| name);
-        return Err(Failure::OtherProvider {
-            link: name(slug).to_owned(),
-            current: name(current).to_owned(),
-        });
-    }
-    if session.client().is_none() {
-        return Err(Failure::SignedOut);
-    }
-    match linked {
-        Linked::Track(_) | Linked::Album(_) | Linked::Playlist(_) | Linked::Artist(_) => Ok(linked),
-        Linked::User(_) | Linked::Jam(_) | Linked::Short => Err(unqueueable()),
-    }
 }
 
 /// What plays now, on the steered device when there is one, or `None` when nothing is loaded.
@@ -198,4 +283,70 @@ fn wire_repeat(repeat: Repeat) -> commands::Repeat {
 /// A volume level of 0 to 1 as the whole percent the command line speaks.
 fn percent(level: f32) -> u8 {
     (level.clamp(0., 1.) * 100.).round() as u8
+}
+
+/// The tracks a checked item stands for. A file is read by the local provider, a link
+/// fetched from the provider it belongs to.
+async fn fetch(
+    source: Source,
+    local: &Arc<dyn MusicProvider>,
+    client: Option<&Arc<dyn MusicApi>>,
+) -> Result<Batch, Missed> {
+    let (link, linked) = match source {
+        Source::Path(path) => {
+            let track = local.track_from_path(&path).ok_or_else(|| Missed {
+                failure: Failure::Unreadable(path.display().to_string()),
+                error: None,
+            })?;
+            return Ok(Batch {
+                tracks: vec![track],
+                origin: None,
+            });
+        }
+        Source::Link(link, linked) => (link, linked),
+    };
+    let Some(client) = client else {
+        return Err(Missed {
+            failure: Failure::SignedOut,
+            error: None,
+        });
+    };
+    let fetched = match linked {
+        Linked::Track(id) => client.track(&id).await.map(|track| Batch {
+            tracks: vec![track],
+            origin: None,
+        }),
+        Linked::Album(id) => client.album_tracks(&id).await.map(|tracks| {
+            let name = tracks.first().map(|track| track.album.clone());
+            let origin = Origin::album(id);
+            Batch {
+                origin: Some(match name {
+                    Some(name) => origin.named(name),
+                    None => origin,
+                }),
+                tracks,
+            }
+        }),
+        Linked::Playlist(id) => client.playlist_tracks(&id).await.map(|tracks| Batch {
+            tracks,
+            origin: Some(Origin::playlist(id)),
+        }),
+        Linked::Artist(id) => client.artist(&id).await.map(|artist| Batch {
+            tracks: artist.top_tracks,
+            origin: Some(Origin::artist(id).named(artist.name)),
+        }),
+        Linked::User(_) | Linked::Jam(_) | Linked::Short => {
+            return Err(Missed {
+                failure: Failure::Unqueueable(link),
+                error: None,
+            });
+        }
+    };
+    fetched.map_err(|error| {
+        log::warn!("control: cannot fetch {link}: {error:#}");
+        Missed {
+            failure: Failure::Unfetched(link),
+            error: Some(error),
+        }
+    })
 }

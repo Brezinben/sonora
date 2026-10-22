@@ -76,6 +76,7 @@ fn describe(failure: &Failure) -> String {
             format!("the link is for {link}, but {current} is the current provider")
         }
         Failure::Unqueueable(item) => format!("'{item}' cannot be queued"),
-        Failure::ManyLinks => "queue one link at a time".to_owned(),
+        Failure::Unreadable(path) => format!("cannot read '{path}'"),
+        Failure::Unfetched(link) => format!("cannot fetch '{link}'"),
     }
 }

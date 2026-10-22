@@ -93,8 +93,10 @@ pub enum Failure {
     OtherProvider { link: String, current: String },
     /// No provider reads this link, or it points at nothing that can be queued.
     Unqueueable(String),
-    /// Links are queued one per command, since each is fetched on its own.
-    ManyLinks,
+    /// A file to queue does not read as music.
+    Unreadable(String),
+    /// A link to queue could not be fetched from its provider.
+    Unfetched(String),
 }
 
 /// Why a line could not be read off the socket.
