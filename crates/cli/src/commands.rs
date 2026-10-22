@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 /// Type of possible CLI commands: whether is can be executed right there or needs to be sent as request
 pub enum CommandType {
+    /// Plain `sonora` or `sonora <paths|links>`: claims the instance or hands the items over.
+    Launch(Vec<String>),
     /// Answered by this process alone, whether or not Sonora runs.
     Local(Local),
     /// Sent to the running instance, which is started first if the request allows it.

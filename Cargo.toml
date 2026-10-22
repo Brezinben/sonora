@@ -10,6 +10,7 @@ repository = "https://github.com/sonorahq/sonora"
 
 [workspace.dependencies]
 embed = { path = "crates/embed" }
+cli = { path = "crates/cli" }
 i18n = { path = "crates/i18n" }
 icons = { path = "crates/icons" }
 music = { path = "crates/music" }
@@ -68,6 +69,7 @@ windows-sys = { version = "0.61", features = [
 ] }
 webview2-com = "0.39"
 interprocess = "2.4"
+clap = { version = "4.5", features = ["derive"] }
 widestring = "1.2"
 image = { version = "0.25", default-features = false, features = [
   "jpeg",

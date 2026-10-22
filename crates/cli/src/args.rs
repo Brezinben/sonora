@@ -1,0 +1,154 @@
+use std::ffi::OsString;
+use std::path::Path;
+use std::process::ExitCode;
+
+use clap::error::ErrorKind;
+use clap::{CommandFactory as _, Parser, Subcommand, ValueEnum};
+
+use crate::commands::{CommandType, Level, PlaybackCommand, Repeat, Request, Switch};
+
+/// The command line as the user types it. It is flat where `Request` is grouped, so the two
+/// shapes are kept apart and joined in `into_command`.
+#[derive(Parser)]
+#[command(
+    name = "sonora",
+    version,
+    about = "A native music streaming client",
+    args_conflicts_with_subcommands = true,
+    disable_help_subcommand = true
+)]
+struct Args {
+    #[command(subcommand)]
+    command: Option<Sub>,
+    /// Files or links to open.
+    items: Vec<String>,
+}
+
+#[derive(Subcommand)]
+enum Sub {
+    /// Resume playback.
+    Play,
+    /// Pause playback.
+    Pause,
+    /// Skip to the next track.
+    Next,
+    /// Go back to the previous track.
+    #[command(alias = "previous")]
+    Prev,
+    /// Jump to a point of the current track, in percent.
+    Seek {
+        #[arg(value_parser = clap::value_parser!(u8).range(0..=100))]
+        percent: u8,
+    },
+    /// Print the current track as JSON.
+    Current,
+    /// Print the volume, or set it: `50`, `+5`, `-5`.
+    Volume {
+        #[arg(allow_negative_numbers = true, value_parser = level)]
+        level: Option<Level>,
+    },
+    /// Print shuffle, or switch it.
+    Shuffle { switch: Option<SwitchArg> },
+    /// Print repeat, or set it.
+    Repeat { repeat: Option<RepeatArg> },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum SwitchArg {
+    On,
+    Off,
+    Toggle,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum RepeatArg {
+    Off,
+    All,
+    One,
+}
+
+/// Reads the command line, `args` including the program name. Help, version and usage errors
+/// are printed here and come back as the code to exit with.
+pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<CommandType, ExitCode> {
+    let args = Args::try_parse_from(args).map_err(fail)?;
+    into_command(args).map_err(fail)
+}
+
+/// The usage text, for a caller that prints help itself.
+pub fn help() -> String {
+    Args::command().render_long_help().to_string()
+}
+
+fn into_command(args: Args) -> Result<CommandType, clap::Error> {
+    let Some(command) = args.command else {
+        if let Some(typo) = args.items.iter().find(|item| is_typo(item)) {
+            return Err(Args::command().error(
+                ErrorKind::InvalidSubcommand,
+                format!("unrecognized subcommand '{typo}'"),
+            ));
+        }
+        return Ok(CommandType::Launch(args.items));
+    };
+    let playback = match command {
+        Sub::Play => PlaybackCommand::Play,
+        Sub::Pause => PlaybackCommand::Pause,
+        Sub::Next => PlaybackCommand::Next,
+        Sub::Prev => PlaybackCommand::Previous,
+        Sub::Seek { percent } => PlaybackCommand::Seek(percent),
+        Sub::Current => PlaybackCommand::CurrentTrack,
+        Sub::Volume { level } => PlaybackCommand::Volume(level),
+        Sub::Shuffle { switch } => PlaybackCommand::Shuffle(switch.map(Switch::from)),
+        Sub::Repeat { repeat } => PlaybackCommand::Repeat(repeat.map(Repeat::from)),
+    };
+    Ok(CommandType::Remote(Request::Playback(playback)))
+}
+
+impl From<SwitchArg> for Switch {
+    fn from(switch: SwitchArg) -> Self {
+        match switch {
+            SwitchArg::On => Self::On,
+            SwitchArg::Off => Self::Off,
+            SwitchArg::Toggle => Self::Toggle,
+        }
+    }
+}
+
+impl From<RepeatArg> for Repeat {
+    fn from(repeat: RepeatArg) -> Self {
+        match repeat {
+            RepeatArg::Off => Self::Off,
+            RepeatArg::All => Self::All,
+            RepeatArg::One => Self::One,
+        }
+    }
+}
+
+/// Prints a clap error, or the help and version it carries, and gives its exit code.
+fn fail(error: clap::Error) -> ExitCode {
+    error.print().ok();
+    ExitCode::from(error.exit_code() as u8)
+}
+
+/// A volume as typed: a signed step from the current level, or a level to land on.
+fn level(text: &str) -> Result<Level, String> {
+    let signed = text.starts_with(['+', '-']);
+    let value: i16 = text
+        .parse()
+        .map_err(|_| format!("'{text}' is not a number"))?;
+    match signed {
+        true => i8::try_from(value)
+            .map(Level::By)
+            .map_err(|_| format!("a step of {value} is too large")),
+        false => u8::try_from(value)
+            .ok()
+            .filter(|value| *value <= 100)
+            .map(Level::To)
+            .ok_or_else(|| format!("{value} is not between 0 and 100")),
+    }
+}
+
+/// Whether an item meant as a file or link reads as a mistyped command instead: a bare word
+/// that names no file here and is no address.
+fn is_typo(item: &str) -> bool {
+    !item.contains(['/', '\\', ':', '.']) && !Path::new(item).exists()
+}

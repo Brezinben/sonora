@@ -14,10 +14,11 @@ mod thumbbar;
 mod tray;
 
 use std::path::PathBuf;
-use std::process::exit;
+use std::process::{ExitCode, exit};
 use std::sync::Arc;
 use std::time::Duration;
 
+use cli::commands::CommandType;
 use gpui::{
     App, AppContext as _, Bounds, Pixels, QuitMode, Size, TitlebarOptions, WindowBounds,
     WindowOptions, px, size,
@@ -38,7 +39,7 @@ const FIRST_SIZE: Size<Pixels> = size(px(920.), px(640.));
 /// they land as one batch instead of racing each other into the engine one at a time.
 const OPEN_COALESCE: Duration = Duration::from_millis(250);
 
-fn main() {
+fn main() -> ExitCode {
     memory::tune();
     if let Some(code) = webview::probed() {
         exit(code);
@@ -51,18 +52,28 @@ fn main() {
             log::error!("widevine: the cdm host failed: {error:#}");
             exit(1);
         }
-        return;
+        return ExitCode::SUCCESS;
     }
+    // A command for the running Sonora is sent and answered here, without a log file, a
+    // runtime or a window. Older macOS adds a `-psn_` argument to a Finder launch.
+    let args = std::env::args_os().filter(|arg| !arg.to_string_lossy().starts_with("-psn_"));
+    let args = match cli::parse(args) {
+        Ok(CommandType::Launch(items)) => items,
+        Ok(CommandType::Local(local)) => return cli::local(local),
+        Ok(CommandType::Remote(request)) => {
+            return match single::connect() {
+                Ok(mut stream) => cli::run(&mut stream, &request),
+                Err(_) => cli::not_running(),
+            };
+        }
+        Err(code) => return code,
+    };
     logging::init();
 
-    let args: Vec<String> = std::env::args()
-        .skip(1)
-        .filter(|arg| !arg.starts_with('-'))
-        .collect();
     let (sender, mut links) = tokio::sync::mpsc::unbounded_channel::<Vec<String>>();
     match single::claim(&args, sender.clone()) {
         single::Instance::First => {}
-        single::Instance::Running => return,
+        single::Instance::Running => return ExitCode::SUCCESS,
         single::Instance::Failed => exit(1),
     }
     // Two rustls backends are compiled in: librespot, oauth2 and ytmusic still ask for ring,
@@ -76,7 +87,7 @@ fn main() {
         Ok(io) => io,
         Err(error) => {
             eprintln!("sonora: cannot start runtime: {error:#}");
-            return;
+            return ExitCode::FAILURE;
         }
     };
 
@@ -217,6 +228,7 @@ fn main() {
 
         cx.activate(true);
     });
+    ExitCode::SUCCESS
 }
 
 /// Opens what a launch or a hand-off passed: a provider's link opens on that provider, and

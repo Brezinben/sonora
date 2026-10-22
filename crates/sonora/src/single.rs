@@ -1,7 +1,9 @@
-use std::io::{self, ErrorKind, Read, Write};
+use std::io::{self, BufRead as _, BufReader, ErrorKind, Read, Write};
 use std::thread;
 use std::time::Duration;
 
+use cli::commands::Request;
+use cli::wire::{self, Failure, Reply};
 use interprocess::local_socket::traits::{ListenerExt as _, Stream as _};
 use interprocess::local_socket::{ListenerOptions, Name, Stream};
 use tokio::sync::mpsc::UnboundedSender;
@@ -10,6 +12,8 @@ const SOCKET: &str = match cfg!(debug_assertions) {
     true => "sonora-dev.sock",
     false => "sonora.sock",
 };
+/// How long either end waits on the other, so a stalled peer never holds a thread for good.
+const PATIENCE: Duration = Duration::from_secs(5);
 
 pub enum Instance {
     First,
@@ -62,26 +66,64 @@ pub fn claim(args: &[String], sender: UnboundedSender<Vec<String>>) -> Instance 
 
     thread::spawn(move || {
         for connection in listener.incoming() {
-            let Ok(mut connection) = connection else {
-                continue;
-            };
-            let mut payload = String::new();
-            if connection.read_to_string(&mut payload).is_err() {
-                continue;
-            }
-            let items: Vec<String> = payload
-                .split('\n')
-                .map(str::trim)
-                .filter(|line| !line.is_empty())
-                .map(str::to_owned)
-                .collect();
-            if sender.send(items).is_err() {
+            if sender.is_closed() {
                 break;
             }
+            let Ok(connection) = connection else {
+                continue;
+            };
+            let sender = sender.clone();
+            thread::spawn(move || serve(connection, &sender));
         }
     });
 
     Instance::First
+}
+
+/// The running Sonora's instance socket, for a command line that talks to it.
+pub fn connect() -> io::Result<Stream> {
+    let stream = Stream::connect(name()?)?;
+    stream.set_recv_timeout(Some(PATIENCE))?;
+    Ok(stream)
+}
+
+/// Answers one connection. A line of JSON is a command and gets a reply; anything else is
+/// the items of a launch handed over, read until the other end closes.
+fn serve(connection: Stream, sender: &UnboundedSender<Vec<String>>) {
+    if let Err(error) = connection.set_recv_timeout(Some(PATIENCE)) {
+        log::warn!("single: cannot bound the read: {error:#}");
+    }
+    let mut reader = BufReader::new(&connection);
+    let command = match reader.fill_buf() {
+        Ok(buffer) => buffer.first() == Some(&b'{'),
+        Err(_) => return,
+    };
+    if command {
+        let reply = match wire::receive::<Request>(&mut reader) {
+            Ok(_) => Reply::Failed(Failure::Unsupported),
+            Err(wire::Error::Version(_)) => Reply::Failed(Failure::Version(wire::VERSION)),
+            Err(error) => {
+                log::warn!("single: cannot read a command: {error}");
+                Reply::Failed(Failure::Malformed)
+            }
+        };
+        if let Err(error) = wire::send(&mut &connection, &reply) {
+            log::warn!("single: cannot answer a command: {error}");
+        }
+        return;
+    }
+
+    let mut payload = String::new();
+    if reader.read_to_string(&mut payload).is_err() {
+        return;
+    }
+    let items: Vec<String> = payload
+        .split('\n')
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect();
+    sender.send(items).ok();
 }
 
 fn hand_over(name: Name<'_>, args: &[String]) -> bool {
