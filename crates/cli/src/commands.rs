@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap_complete::Shell;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +26,7 @@ pub enum Request {
     /// Commands serving playback manipulation
     Playback(PlaybackCommand),
     /// Commands serving queue manipulation
-    Queue,
+    Queue(QueueCommand),
     /// Commands serving provider manipulation
     Provider,
     /// Commands serving playback manipulation
@@ -55,8 +57,23 @@ pub enum PlaybackCommand {
     Repeat(Option<Repeat>),
 }
 
-pub enum Queue {
-    Add,
+/// Commands serving queue manipulation
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum QueueCommand {
+    /// Queues items after the ones queued by hand. Stands for `sonora add <items>`
+    Add(Vec<Item>),
+    /// Queues items right after the current track. Stands for `sonora play-next <items>`
+    PlayNext(Vec<Item>),
+}
+
+/// Something to queue: a link of the current provider, or a file the running Sonora reads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Item {
+    Link(String),
+    /// Always absolute, since the running Sonora sits in another folder.
+    Path(PathBuf),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

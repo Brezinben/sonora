@@ -71,5 +71,11 @@ fn describe(failure: &Failure) -> String {
         Failure::Version(v) => format!("the running Sonora speaks protocol {v}; restart it"),
         Failure::Malformed => "the running Sonora could not read the command".to_owned(),
         Failure::Unsupported => "this command is not supported yet".to_owned(),
+        Failure::SignedOut => "no provider is signed in".to_owned(),
+        Failure::OtherProvider { link, current } => {
+            format!("the link is for {link}, but {current} is the current provider")
+        }
+        Failure::Unqueueable(item) => format!("'{item}' cannot be queued"),
+        Failure::ManyLinks => "queue one link at a time".to_owned(),
     }
 }

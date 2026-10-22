@@ -1,13 +1,16 @@
 use std::ffi::OsString;
 use std::io::{self, Write as _};
-use std::path::Path;
+use std::path::{self, Path};
 use std::process::ExitCode;
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory as _, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 
-use crate::commands::{CommandType, Level, Local, PlaybackCommand, Repeat, Request, Switch};
+use crate::commands::{
+    CommandType, Item, Level, Local, PlaybackCommand, QueueCommand, Repeat, Request, Switch,
+};
+use crate::item;
 
 /// The command line as the user types it. It is flat where `Request` is grouped, so the two
 /// shapes are kept apart and joined in `into_command`.
@@ -55,6 +58,16 @@ enum Sub {
     Shuffle { switch: Option<SwitchArg> },
     /// Print repeat, or set it.
     Repeat { repeat: Option<RepeatArg> },
+    /// Queue files or links after the tracks queued by hand.
+    Add {
+        #[arg(required = true, value_hint = ValueHint::AnyPath, value_parser = queued)]
+        items: Vec<Item>,
+    },
+    /// Queue files or links right after the current track.
+    PlayNext {
+        #[arg(required = true, value_hint = ValueHint::AnyPath, value_parser = queued)]
+        items: Vec<Item>,
+    },
     /// Print the completion script for a shell.
     Completions { shell: Shell },
 }
@@ -96,7 +109,8 @@ fn into_command(args: Args) -> Result<CommandType, clap::Error> {
                 format!("unrecognized subcommand '{typo}'"),
             ));
         }
-        return Ok(CommandType::Launch(args.items));
+        let items = args.items.into_iter().map(item::anchored).collect();
+        return Ok(CommandType::Launch(items));
     };
     let playback = match command {
         Sub::Play => PlaybackCommand::Play,
@@ -108,6 +122,8 @@ fn into_command(args: Args) -> Result<CommandType, clap::Error> {
         Sub::Volume { level } => PlaybackCommand::Volume(level),
         Sub::Shuffle { switch } => PlaybackCommand::Shuffle(switch.map(Switch::from)),
         Sub::Repeat { repeat } => PlaybackCommand::Repeat(repeat.map(Repeat::from)),
+        Sub::Add { items } => return Ok(queue(QueueCommand::Add(items))),
+        Sub::PlayNext { items } => return Ok(queue(QueueCommand::PlayNext(items))),
         Sub::Completions { shell } => return Ok(CommandType::Local(Local::Completions(shell))),
     };
     Ok(CommandType::Remote(Request::Playback(playback)))
@@ -133,6 +149,10 @@ impl From<RepeatArg> for Repeat {
     }
 }
 
+fn queue(command: QueueCommand) -> CommandType {
+    CommandType::Remote(Request::Queue(command))
+}
+
 /// Prints a clap error, or the help and version it carries, and gives its exit code.
 fn fail(error: clap::Error) -> ExitCode {
     error.print().ok();
@@ -154,6 +174,18 @@ fn level(text: &str) -> Result<Level, String> {
             .filter(|value| *value <= 100)
             .map(Level::To)
             .ok_or_else(|| format!("{value} is not between 0 and 100")),
+    }
+}
+
+/// An item to queue as typed: an address goes as it is, a path has to name a file here.
+fn queued(text: &str) -> Result<Item, String> {
+    if item::is_address(text) {
+        return Ok(Item::Link(text.to_owned()));
+    }
+    let path = path::absolute(item::local_path(text)).map_err(|error| error.to_string())?;
+    match path.exists() {
+        true => Ok(Item::Path(path)),
+        false => Err(format!("no file at '{}'", path.display())),
     }
 }
 

@@ -47,7 +47,8 @@ pub enum Value {
 pub struct Current {
     pub state: State,
     pub track: Track,
-    pub position_ms: u64,
+    /// Whole seconds into the track.
+    pub position: u64,
     pub volume: u8,
     pub shuffle: bool,
     pub repeat: Repeat,
@@ -71,7 +72,8 @@ pub struct Track {
     pub artists: Vec<String>,
     pub album: String,
     pub cover: Option<String>,
-    pub duration_ms: u64,
+    /// In whole seconds, which is as fine as most providers report it.
+    pub duration: u64,
 }
 
 /// Why the running Sonora refused a request. Each is turned into a Fluent message on the
@@ -85,6 +87,14 @@ pub enum Failure {
     Malformed,
     /// The command is known but not carried out yet.
     Unsupported,
+    /// No provider is signed in to read a link with.
+    SignedOut,
+    /// A link belongs to another provider than the current one. Both are named.
+    OtherProvider { link: String, current: String },
+    /// No provider reads this link, or it points at nothing that can be queued.
+    Unqueueable(String),
+    /// Links are queued one per command, since each is fetched on its own.
+    ManyLinks,
 }
 
 /// Why a line could not be read off the socket.
