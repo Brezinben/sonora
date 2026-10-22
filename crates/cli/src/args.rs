@@ -1,11 +1,13 @@
 use std::ffi::OsString;
+use std::io::{self, Write as _};
 use std::path::Path;
 use std::process::ExitCode;
 
 use clap::error::ErrorKind;
-use clap::{CommandFactory as _, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory as _, Parser, Subcommand, ValueEnum, ValueHint};
+use clap_complete::Shell;
 
-use crate::commands::{CommandType, Level, PlaybackCommand, Repeat, Request, Switch};
+use crate::commands::{CommandType, Level, Local, PlaybackCommand, Repeat, Request, Switch};
 
 /// The command line as the user types it. It is flat where `Request` is grouped, so the two
 /// shapes are kept apart and joined in `into_command`.
@@ -21,6 +23,7 @@ struct Args {
     #[command(subcommand)]
     command: Option<Sub>,
     /// Files or links to open.
+    #[arg(value_hint = ValueHint::AnyPath)]
     items: Vec<String>,
 }
 
@@ -44,6 +47,7 @@ enum Sub {
     Current,
     /// Print the volume, or set it: `50`, `+5`, `-5`.
     Volume {
+        /// A level from 0 to 100, or a step from the current one.
         #[arg(allow_negative_numbers = true, value_parser = level)]
         level: Option<Level>,
     },
@@ -51,6 +55,8 @@ enum Sub {
     Shuffle { switch: Option<SwitchArg> },
     /// Print repeat, or set it.
     Repeat { repeat: Option<RepeatArg> },
+    /// Print the completion script for a shell.
+    Completions { shell: Shell },
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -74,9 +80,12 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<CommandType, Ex
     into_command(args).map_err(fail)
 }
 
-/// The usage text, for a caller that prints help itself.
-pub fn help() -> String {
-    Args::command().render_long_help().to_string()
+/// Writes the completion script for `shell` to stdout. It is built whole first, since clap
+/// panics when stdout closes under it, as it does when piped into `head`.
+pub fn completions(shell: Shell) {
+    let mut script = Vec::new();
+    clap_complete::generate(shell, &mut Args::command(), "sonora", &mut script);
+    io::stdout().write_all(&script).ok();
 }
 
 fn into_command(args: Args) -> Result<CommandType, clap::Error> {
@@ -99,6 +108,7 @@ fn into_command(args: Args) -> Result<CommandType, clap::Error> {
         Sub::Volume { level } => PlaybackCommand::Volume(level),
         Sub::Shuffle { switch } => PlaybackCommand::Shuffle(switch.map(Switch::from)),
         Sub::Repeat { repeat } => PlaybackCommand::Repeat(repeat.map(Repeat::from)),
+        Sub::Completions { shell } => return Ok(CommandType::Local(Local::Completions(shell))),
     };
     Ok(CommandType::Remote(Request::Playback(playback)))
 }

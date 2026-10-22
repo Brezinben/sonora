@@ -1,3 +1,4 @@
+use clap_complete::Shell;
 use serde::{Deserialize, Serialize};
 
 /// Type of possible CLI commands: whether is can be executed right there or needs to be sent as request
@@ -12,9 +13,8 @@ pub enum CommandType {
 
 /// Local CLI commands that can be executed without `Sonora` running or requesting is's socket
 pub enum Local {
-    Help,
-    Version,
-    // Completions(Shell)
+    /// Prints the completion script for a shell. Stands for `sonora completions <shell>`
+    Completions(Shell),
 }
 
 /// CLI commands that need to sent request to the running `Sonora` application

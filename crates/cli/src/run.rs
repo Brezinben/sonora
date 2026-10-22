@@ -13,8 +13,7 @@ const NOT_RUNNING: u8 = 3;
 /// Carries out a command that needs no running Sonora.
 pub fn local(local: Local) -> ExitCode {
     match local {
-        Local::Help => println!("{}", args::help()),
-        Local::Version => println!("sonora {}", env!("CARGO_PKG_VERSION")),
+        Local::Completions(shell) => args::completions(shell),
     }
     ExitCode::SUCCESS
 }

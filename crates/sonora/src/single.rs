@@ -7,6 +7,7 @@ use cli::wire::{self, Failure, Reply};
 use interprocess::local_socket::traits::{ListenerExt as _, Stream as _};
 use interprocess::local_socket::{ListenerOptions, Name, Stream};
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
 
 const SOCKET: &str = match cfg!(debug_assertions) {
     true => "sonora-dev.sock",
@@ -15,6 +16,9 @@ const SOCKET: &str = match cfg!(debug_assertions) {
 /// How long either end waits on the other, so a stalled peer never holds a thread for good.
 const PATIENCE: Duration = Duration::from_secs(5);
 
+/// A command from the command line and where its reply goes.
+pub type Asked = (Request, oneshot::Sender<Reply>);
+
 pub enum Instance {
     First,
     Running,
@@ -22,8 +26,13 @@ pub enum Instance {
 }
 
 /// `args` is every non-flag command-line argument of this launch: a lone `spotify:`/web link, or
-/// one or more file paths from an "Open With" selection.
-pub fn claim(args: &[String], sender: UnboundedSender<Vec<String>>) -> Instance {
+/// one or more file paths from an "Open With" selection. Later launches hand their items to
+/// `sender` and their commands to `commands`.
+pub fn claim(
+    args: &[String],
+    sender: UnboundedSender<Vec<String>>,
+    commands: UnboundedSender<Asked>,
+) -> Instance {
     let name = match name() {
         Ok(name) => name,
         Err(error) => {
@@ -72,8 +81,8 @@ pub fn claim(args: &[String], sender: UnboundedSender<Vec<String>>) -> Instance 
             let Ok(connection) = connection else {
                 continue;
             };
-            let sender = sender.clone();
-            thread::spawn(move || serve(connection, &sender));
+            let (sender, commands) = (sender.clone(), commands.clone());
+            thread::spawn(move || serve(connection, &sender, &commands));
         }
     });
 
@@ -89,7 +98,11 @@ pub fn connect() -> io::Result<Stream> {
 
 /// Answers one connection. A line of JSON is a command and gets a reply; anything else is
 /// the items of a launch handed over, read until the other end closes.
-fn serve(connection: Stream, sender: &UnboundedSender<Vec<String>>) {
+fn serve(
+    connection: Stream,
+    sender: &UnboundedSender<Vec<String>>,
+    commands: &UnboundedSender<Asked>,
+) {
     if let Err(error) = connection.set_recv_timeout(Some(PATIENCE)) {
         log::warn!("single: cannot bound the read: {error:#}");
     }
@@ -100,7 +113,16 @@ fn serve(connection: Stream, sender: &UnboundedSender<Vec<String>>) {
     };
     if command {
         let reply = match wire::receive::<Request>(&mut reader) {
-            Ok(_) => Reply::Failed(Failure::Unsupported),
+            Ok(request) => {
+                let (reply, answered) = oneshot::channel();
+                if commands.send((request, reply)).is_err() {
+                    return;
+                }
+                match answered.blocking_recv() {
+                    Ok(reply) => reply,
+                    Err(_) => return,
+                }
+            }
             Err(wire::Error::Version(_)) => Reply::Failed(Failure::Version(wire::VERSION)),
             Err(error) => {
                 log::warn!("single: cannot read a command: {error}");

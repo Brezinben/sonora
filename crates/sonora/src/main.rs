@@ -71,7 +71,8 @@ fn main() -> ExitCode {
     logging::init();
 
     let (sender, mut links) = tokio::sync::mpsc::unbounded_channel::<Vec<String>>();
-    match single::claim(&args, sender.clone()) {
+    let (asked, mut commands) = tokio::sync::mpsc::unbounded_channel::<single::Asked>();
+    match single::claim(&args, sender.clone(), asked) {
         single::Instance::First => {}
         single::Instance::Running => return ExitCode::SUCCESS,
         single::Instance::Failed => exit(1),
@@ -200,6 +201,16 @@ fn main() -> ExitCode {
         if !args.is_empty() {
             sender.send(args.clone()).ok();
         }
+
+        // Commands skip the open batching, since nothing arrives in bursts there.
+        cx.spawn(async move |cx| {
+            while let Some((request, reply)) = commands.recv().await {
+                reply
+                    .send(cx.update(|cx| state::answer_command(request, cx)))
+                    .ok();
+            }
+        })
+        .detach();
 
         cx.spawn(async move |cx| {
             let mut pending: Vec<String> = Vec::new();

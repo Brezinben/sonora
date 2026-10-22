@@ -1,5 +1,6 @@
 mod artist;
 mod catalog;
+mod control;
 mod cover;
 mod detail;
 mod devices;
@@ -43,6 +44,7 @@ mod wake;
 mod window_shape;
 
 pub use artist::{ArtistDetail, ArtistDetailEvent};
+pub use control::answer as answer_command;
 pub use cover::Cover;
 pub use detail::{Collection, Detail, Header};
 pub use devices::{Devices, Steered, Upcoming};
