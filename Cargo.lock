@@ -943,6 +943,10 @@ dependencies = [
 [[package]]
 name = "cli"
 version = "0.44.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "cmake"
