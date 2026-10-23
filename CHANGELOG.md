@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The fullscreen visualizer keeps moving after Sonora rebuilds its playback engine, instead of
+  freezing on the last bars.
+
 ## [0.44.1] - 2026-10-22
 
 ### Added
