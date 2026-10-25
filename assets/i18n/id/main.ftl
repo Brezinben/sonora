@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Tambahkan { $count } lagu ke playlist
 }
 menu-new-playlist = Playlist baru
+menu-import-playlist = Impor playlist…
 menu-edit-tags = Edit tag
 menu-no-playlists = Tidak ada playlist
 menu-search-playlists = Cari playlist
@@ -166,6 +167,7 @@ menu-select-all = Pilih semua
 menu-remove-from-queue = Hapus dari antrean
 menu-rename-playlist = Ganti nama playlist
 menu-delete-playlist = Hapus playlist
+menu-export-playlist = Ekspor playlist…
 menu-add-playlist-to-library = Simpan ke Koleksi
 menu-remove-playlist-from-library = Hapus dari Koleksi
 menu-library-add = Tambahkan ke Koleksi
@@ -1084,6 +1086,14 @@ toast-track-removed-unnamed = Dihapus dari playlist
 toast-playlist-failed = Perubahan tidak dapat disimpan
 toast-playlist-busy = Perubahan lain masih diproses
 toast-playlist-signed-out = Masuk akun untuk mengubah playlist
+toast-playlist-imported = { $name } berhasil diimpor
+toast-playlist-imported-partly = { $name } berhasil diimpor tanpa { $count ->
+        [one] satu lagu
+       *[other] { $count } lagu
+    } yang tidak ada di koleksi Anda
+toast-playlist-import-empty = Tidak ada lagu dari { $name } yang ada di koleksi Anda
+toast-playlist-exported = Playlist berhasil diekspor
+toast-file-dialog-failed = Dialog file tidak dapat dibuka
 toast-queued-track = { $name } ditambahkan ke antrean
 toast-next-track = { $name } akan diputar berikutnya
 toast-last-track = { $name } akan diputar terakhir

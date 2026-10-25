@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] 将 { $count } 首歌曲添加到播放列表
 }
 menu-new-playlist = 新建播放列表
+menu-import-playlist = 导入播放列表…
 menu-edit-tags = 编辑标签
 menu-no-playlists = 没有播放列表
 menu-search-playlists = 搜索播放列表
@@ -166,6 +167,7 @@ menu-select-all = 全选
 menu-remove-from-queue = 从播放队列中移除
 menu-rename-playlist = 重命名播放列表
 menu-delete-playlist = 删除播放列表
+menu-export-playlist = 导出播放列表…
 menu-add-playlist-to-library = 添加到音乐库
 menu-remove-playlist-from-library = 从音乐库中移除
 menu-library-add = 添加到音乐库
@@ -1084,6 +1086,14 @@ toast-track-removed-unnamed = 已从播放列表中移除
 toast-playlist-failed = 该更改无法保存
 toast-playlist-busy = 另一个更改仍在进行中
 toast-playlist-signed-out = 登录以更改播放列表
+toast-playlist-imported = 已导入 { $name }
+toast-playlist-imported-partly = 已导入 { $name }，跳过了 { $count ->
+        [one] { $count } 首
+       *[other] { $count } 首
+    }不在你的音乐库中的歌曲
+toast-playlist-import-empty = { $name } 中没有任何歌曲在你的音乐库中
+toast-playlist-exported = 播放列表已导出
+toast-file-dialog-failed = 无法打开文件对话框
 toast-queued-track = { $name } 已添加到播放队列
 toast-next-track = 接下来播放 { $name }
 toast-last-track = 最后播放 { $name }

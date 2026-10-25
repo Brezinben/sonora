@@ -8,14 +8,14 @@ use storage::Database;
 
 use crate::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistProfile, GenreItem, GenreSection, HomeFeed,
-    MediaKind, MusicApi, Playlist, PlaylistDetail, SUGGESTIONS, SavedArtist, Track, TrackTags,
-    UserProfile, distinct_covers,
+    ImportedPlaylist, MediaKind, MusicApi, Playlist, PlaylistDetail, SUGGESTIONS, SavedArtist,
+    Track, TrackTags, UserProfile, distinct_covers,
 };
 
 use super::index::Index;
 use super::scan::Scanned;
 use super::store::{Starred, Store};
-use super::{tags, wire};
+use super::{m3u, tags, wire};
 
 const COVERS: usize = 4;
 const NOT_SUPPORTED: &str = "local playlists are not shared";
@@ -77,6 +77,47 @@ impl LocalClient {
             .filter_map(wire::path_from_track_id)
             .map(Path::to_path_buf)
             .collect()
+    }
+
+    /// The library tracks `paths` name, each once and in order, and how many paths named a file
+    /// the library does not hold. A path is matched as written first, then by where it really
+    /// leads, so a `..` or a folder reached through a link still finds its file.
+    fn find_files(&self, paths: &[PathBuf]) -> (Vec<String>, usize) {
+        let scanned = self.scanned.read().unwrap();
+        let known: HashSet<&str> = scanned
+            .tracks
+            .iter()
+            .filter_map(|track| track.id.as_deref())
+            .collect();
+        // Resolving every library path costs a disk lookup each, so it waits for an entry that
+        // the cheaper matches miss.
+        let mut resolved: Option<HashMap<PathBuf, &str>> = None;
+        let mut found = Vec::new();
+        let mut seen = HashSet::new();
+        let mut skipped = 0;
+        for path in paths {
+            let id = known
+                .get(wire::track_id(path).as_str())
+                .copied()
+                .or_else(|| {
+                    let real = std::fs::canonicalize(path).ok()?;
+                    known
+                        .get(wire::track_id(&real).as_str())
+                        .copied()
+                        .or_else(|| {
+                            resolved
+                                .get_or_insert_with(|| resolve(&known))
+                                .get(&real)
+                                .copied()
+                        })
+                });
+            match id {
+                Some(id) if seen.insert(id) => found.push(id.to_owned()),
+                Some(_) => {}
+                None => skipped += 1,
+            }
+        }
+        (found, skipped)
     }
 
     /// One album's tracks in playing order. The scan keeps every track in the order the
@@ -320,6 +361,38 @@ impl MusicApi for LocalClient {
 
     async fn remove_track_from_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()> {
         self.store.remove(playlist_id, track_id)
+    }
+
+    async fn import_playlist(&self, path: &Path) -> Result<ImportedPlaylist> {
+        let bytes =
+            std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+        let folder = path.parent().unwrap_or(Path::new(""));
+        let (found, skipped) = self.find_files(&m3u::read(&bytes, folder));
+        let name = path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().trim().to_owned())
+            .unwrap_or_default();
+        if found.is_empty() {
+            return Ok(ImportedPlaylist {
+                playlist: None,
+                name,
+                skipped,
+            });
+        }
+        let id = self.store.create(&name)?;
+        self.store.extend(&id, &found)?;
+        Ok(ImportedPlaylist {
+            playlist: Some(self.assemble(&id)?.playlist),
+            name,
+            skipped,
+        })
+    }
+
+    async fn export_playlist(&self, playlist_id: &str, path: &Path) -> Result<()> {
+        let tracks = self.listed(&self.store.tracks(playlist_id)?);
+        let folder = path.parent().unwrap_or(Path::new(""));
+        std::fs::write(path, m3u::write(&tracks, folder))
+            .with_context(|| format!("cannot write {}", path.display()))
     }
 
     async fn saved_albums(&self) -> Result<Vec<Album>> {
@@ -611,6 +684,18 @@ impl MusicApi for LocalClient {
             sections,
         })
     }
+}
+
+/// The library's tracks by where each file really is, for matching a path that reaches a file
+/// another way. A file that cannot be resolved is left out.
+fn resolve<'a>(known: &HashSet<&'a str>) -> HashMap<PathBuf, &'a str> {
+    known
+        .iter()
+        .filter_map(|&id| {
+            let path = std::fs::canonicalize(wire::path_from_track_id(id)?).ok()?;
+            Some((path, id))
+        })
+        .collect()
 }
 
 #[cfg(test)]

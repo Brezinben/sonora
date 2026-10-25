@@ -197,6 +197,35 @@ impl Store {
         touch(&connection, id)
     }
 
+    /// Adds `track_ids` to the end of a playlist in order, in one write. A track it holds
+    /// already stays where it is.
+    pub fn extend(&self, id: &str, track_ids: &[String]) -> Result<()> {
+        let mut connection = self.open()?;
+        let transaction = connection
+            .transaction()
+            .context("cannot add tracks to a local playlist")?;
+        let start: i64 = transaction
+            .query_row(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_tracks WHERE playlist_id = ?",
+                params![id],
+                |row| row.get(0),
+            )
+            .context("cannot place a track in a local playlist")?;
+        for (position, track_id) in (start..).zip(track_ids) {
+            transaction
+                .execute(
+                    "INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position)
+                     VALUES (?, ?, ?)",
+                    params![id, track_id, position],
+                )
+                .context("cannot add a track to a local playlist")?;
+        }
+        touch(&transaction, id)?;
+        transaction
+            .commit()
+            .context("cannot add tracks to a local playlist")
+    }
+
     pub fn remove(&self, id: &str, track_id: &str) -> Result<()> {
         let connection = self.open()?;
         connection

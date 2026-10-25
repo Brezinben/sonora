@@ -241,6 +241,18 @@ pub struct GenreDetail {
     pub sections: Vec<GenreSection>,
 }
 
+/// What reading a playlist file into the library came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImportedPlaylist {
+    /// The playlist made from the file, or `None` when none of its songs is in the library,
+    /// in which case nothing was made.
+    pub playlist: Option<Playlist>,
+    /// The file's name without its extension, which the new playlist is called.
+    pub name: String,
+    /// How many entries named a file the library does not hold, and so were left out.
+    pub skipped: usize,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TrackTags {
     pub title: String,
