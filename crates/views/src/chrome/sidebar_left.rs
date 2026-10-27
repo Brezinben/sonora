@@ -677,8 +677,8 @@ impl SidebarLeft {
         }
     }
 
-    /// What a dropped song leaves on its way into `target` when the settings ask for a move. The
-    /// liked songs count only on a shelf that keeps favorites, since a catalog lists every song.
+    /// What a dropped song leaves when the setting is on. The favorites count only on a
+    /// `Shape::Saved` shelf, since a catalog page lists every song.
     fn leaves(&self, song: &Pin, target: &str, cx: &App) -> Option<Leaving> {
         if !self.settings.read(cx).move_dropped_songs() {
             return None;

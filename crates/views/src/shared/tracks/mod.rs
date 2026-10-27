@@ -18,7 +18,7 @@ use gpui::{
 };
 use music::Track;
 use router::Destination;
-use state::{Detail, History, Library, Network, Origin, Playback, Progress, Shelf, Sonora};
+use state::{Detail, History, Library, Network, Origin, Playback, Progress, Shelf, Sonora, Whence};
 use ui::{
     ArrowRing, Button, Cell, ColumnSpec, Menu, Pending, Pin, ROW_GROUP, Scrollbar, TableSource,
     TableState,
@@ -265,6 +265,19 @@ impl TrackSource {
 
     pub(crate) fn whence(&self, cx: &App) -> Option<Origin> {
         self.whence.as_ref().and_then(|whence| whence(cx))
+    }
+
+    /// The origin tag a song dragged from this table carries while the settings ask for a move.
+    /// A song its playlist holds more than once stays a copy, since the provider would take out
+    /// every copy and the Undo would bring back one.
+    fn origin_tag(&self, track: &Track, tracks: &[Track], cx: &App) -> Option<String> {
+        if !Sonora::global(cx).settings.read(cx).move_dropped_songs() {
+            return None;
+        }
+        let origin = self.whence(cx)?;
+        let once = origin.whence != Whence::Playlist
+            || tracks.iter().filter(|other| other.id == track.id).count() == 1;
+        once.then(|| origin_tag(&origin)).flatten()
     }
 
     pub(crate) fn table(mut self, table: WeakEntity<TableState<TrackSource>>) -> Self {
@@ -681,8 +694,9 @@ impl TableSource for TrackSource {
     }
 
     fn pin(&self, row: usize, cx: &App) -> Option<Pin> {
-        let origin = self.whence(cx).as_ref().and_then(origin_tag);
-        Some(self.provider.tracks(cx).get(row)?.pin()?.origin(origin))
+        let tracks = self.provider.tracks(cx);
+        let track = tracks.get(row)?;
+        Some(track.pin()?.origin(self.origin_tag(track, tracks, cx)))
     }
 
     fn cell(&self, cell: Cell<TrackField>, cx: &mut App) -> AnyElement {

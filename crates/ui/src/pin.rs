@@ -44,7 +44,7 @@ pub struct Pin {
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
-    /// Where a dragged row was picked up, in the words of whoever drops it. Never stored.
+    /// An opaque tag for where a dragged row was picked up, which ui never reads. Never stored.
     #[serde(skip)]
     pub origin: Option<String>,
 }

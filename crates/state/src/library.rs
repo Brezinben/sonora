@@ -2003,13 +2003,16 @@ impl Library {
     fn leave(&mut self, leaving: Leaving, track_ids: Vec<String>, cx: &mut Context<Self>) {
         match leaving {
             Leaving::Liked => {
-                let tracks = self
+                let tracks: Vec<Track> = self
                     .state(Shelf::Streaming)
                     .tracks()
                     .iter()
                     .filter(|track| track.id.as_ref().is_some_and(|id| track_ids.contains(id)))
                     .cloned()
                     .collect();
+                if tracks.is_empty() {
+                    log::warn!("library: cannot unlike a moved track the favorites do not list");
+                }
                 self.save_tracks(tracks, false, cx);
             }
             Leaving::Playlist(id) => self.remove_tracks_from_playlist(id, track_ids, cx),

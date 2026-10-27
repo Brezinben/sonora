@@ -2,7 +2,7 @@ use music::{Album, Playlist, SavedArtist, Track};
 use state::{Hit, Leaving, Origin, Whence};
 use ui::{Pin, PinKind};
 
-/// The origin a song dragged from the liked songs names. A playlist names itself by its id.
+/// The origin tag of a song dragged from the favorites. A playlist's tag is its id.
 const LIKED: &str = "liked";
 
 pub(crate) trait Pinned {
@@ -70,7 +70,7 @@ impl Pinned for Hit {
     }
 }
 
-/// What a song dragged from `origin` can leave when it moves: the liked songs or a playlist.
+/// The drag tag for a song picked up from `origin`: the favorites or a playlist id, else `None`.
 pub(crate) fn origin_tag(origin: &Origin) -> Option<String> {
     match origin.whence {
         Whence::Saved => Some(LIKED.to_owned()),
