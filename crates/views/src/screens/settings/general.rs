@@ -28,7 +28,8 @@ impl SettingsView {
                 Slot::Pace,
                 Slot::Saver,
             ]),
-            Group::new("settings-group-context-menus", "icons/list.svg").rows([Slot::AdaptiveMenu]),
+            Group::new("settings-group-context-menus", "icons/list.svg")
+                .rows([Slot::AdaptiveMenu, Slot::MoveDroppedSongs]),
         ]
     }
 
@@ -338,6 +339,19 @@ impl SettingsView {
                 }))
                 .into_any_element(),
         )
+    }
+
+    pub(super) fn move_dropped_songs_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).move_dropped_songs();
+        let switch =
+            Switch::new("move-dropped-songs", on).on_click(cx.listener(move |this, _, _, cx| {
+                this.settings
+                    .update(cx, |settings, cx| settings.set_move_dropped_songs(!on, cx));
+            }));
+
+        super::Row::new(t!("settings-move-dropped-songs"), switch.into_any_element())
+            .detail(t!("settings-move-dropped-songs-detail"))
+            .into_any_element()
     }
 
     pub(super) fn tray_row(&self, cx: &mut Context<Self>) -> AnyElement {

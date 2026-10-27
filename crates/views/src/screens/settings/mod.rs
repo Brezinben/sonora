@@ -145,6 +145,7 @@ enum Slot {
     Pace,
     Saver,
     AdaptiveMenu,
+    MoveDroppedSongs,
     Version,
     Updates,
     Channel,
@@ -773,6 +774,10 @@ impl SettingsView {
                 t!("settings-adaptive-menu"),
                 t!("settings-adaptive-menu-detail"),
             ),
+            Slot::MoveDroppedSongs => (
+                t!("settings-move-dropped-songs"),
+                t!("settings-move-dropped-songs-detail"),
+            ),
             Slot::Normalisation => (
                 t!("settings-normalisation"),
                 t!("settings-normalisation-detail"),
@@ -953,6 +958,7 @@ impl SettingsView {
             ))]
             Slot::WindowRounding => self.window_rounding_row(window, cx),
             Slot::AdaptiveMenu => self.adaptive_menu_row(cx),
+            Slot::MoveDroppedSongs => self.move_dropped_songs_row(cx),
             Slot::Normalisation => self.playback_row(cx),
             Slot::Gapless => self.gapless_row(cx),
             Slot::KeepTracks => self.keep_tracks_row(cx),

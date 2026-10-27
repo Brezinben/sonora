@@ -414,6 +414,7 @@ struct Values {
     fullscreen_lyrics_scale: f32,
     romanization_scripts: RomanizationScripts,
     adaptive_menu: bool,
+    move_dropped_songs: bool,
     check_updates: bool,
     /// The release channel chosen in settings, by its id. Empty follows the running build's own
     /// channel, and a copy a package manager installed ignores it.
@@ -614,6 +615,7 @@ impl Default for Values {
             fullscreen_lyrics_scale: DEFAULT_LYRICS_SCALE,
             romanization_scripts: RomanizationScripts::default(),
             adaptive_menu: false,
+            move_dropped_songs: false,
             check_updates: cfg!(target_os = "windows") || updates_itself(),
             update_channel: String::new(),
             close_to_tray: true,
@@ -1118,6 +1120,12 @@ impl AppSettings {
 
     pub fn adaptive_menu(&self) -> bool {
         self.values.adaptive_menu
+    }
+
+    /// Whether a song dropped onto a sidebar playlist leaves the liked songs or the playlist it
+    /// was dragged from.
+    pub fn move_dropped_songs(&self) -> bool {
+        self.values.move_dropped_songs
     }
 
     pub fn update_channel(&self) -> Channel {
@@ -1674,6 +1682,11 @@ impl AppSettings {
 
     pub fn set_adaptive_menu(&mut self, adaptive_menu: bool, cx: &mut Context<Self>) {
         self.values.adaptive_menu = adaptive_menu;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_move_dropped_songs(&mut self, move_dropped_songs: bool, cx: &mut Context<Self>) {
+        self.values.move_dropped_songs = move_dropped_songs;
         self.schedule_save(cx);
     }
 

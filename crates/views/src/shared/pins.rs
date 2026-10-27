@@ -1,6 +1,9 @@
 use music::{Album, Playlist, SavedArtist, Track};
-use state::Hit;
+use state::{Hit, Leaving, Origin, Whence};
 use ui::{Pin, PinKind};
+
+/// The origin a song dragged from the liked songs names. A playlist names itself by its id.
+const LIKED: &str = "liked";
 
 pub(crate) trait Pinned {
     fn pin(&self) -> Option<Pin>;
@@ -64,5 +67,22 @@ impl Pinned for Hit {
         };
 
         Some(Pin::new(kind, id, name).cover(cover))
+    }
+}
+
+/// What a song dragged from `origin` can leave when it moves: the liked songs or a playlist.
+pub(crate) fn origin_tag(origin: &Origin) -> Option<String> {
+    match origin.whence {
+        Whence::Saved => Some(LIKED.to_owned()),
+        Whence::Playlist => Some(origin.id.clone()),
+        _ => None,
+    }
+}
+
+/// Reads back a tag written by `origin_tag`.
+pub(crate) fn leaving(tag: &str) -> Leaving {
+    match tag {
+        LIKED => Leaving::Liked,
+        id => Leaving::Playlist(id.to_owned()),
     }
 }

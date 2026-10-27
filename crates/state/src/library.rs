@@ -280,6 +280,13 @@ impl Addition {
     }
 }
 
+/// Where a track moved into a playlist is taken out of once the playlist has it.
+#[derive(Clone, Debug)]
+pub enum Leaving {
+    Liked,
+    Playlist(String),
+}
+
 struct PlaylistMutation {
     action: &'static str,
     /// The toast shown once the provider agrees, or `None` when `on_done` reports it itself.
@@ -1920,6 +1927,33 @@ impl Library {
         addition: Addition,
         cx: &mut Context<Self>,
     ) {
+        self.add_then_leave(playlist_id, addition, None, cx);
+    }
+
+    /// Adds a track to a playlist, then takes it out of `leaving`. Nothing is taken out when the
+    /// add fails, so the track is never lost.
+    pub fn move_to_playlist(
+        &mut self,
+        playlist_id: String,
+        track_id: String,
+        leaving: Leaving,
+        cx: &mut Context<Self>,
+    ) {
+        self.add_then_leave(
+            playlist_id,
+            Addition::Tracks(vec![track_id]),
+            Some(leaving),
+            cx,
+        );
+    }
+
+    fn add_then_leave(
+        &mut self,
+        playlist_id: String,
+        addition: Addition,
+        leaving: Option<Leaving>,
+        cx: &mut Context<Self>,
+    ) {
         if addition.is_empty() {
             return;
         }
@@ -1953,12 +1987,33 @@ impl Library {
                 let added_count = track_ids.len() as u32;
                 this.amend_playlist(&added, |playlist| playlist.track_count += added_count, cx);
                 if let Some(ids) = this.contents.get_mut(&added) {
-                    ids.extend(track_ids);
+                    ids.extend(track_ids.iter().cloned());
                 }
                 cx.emit(LibraryEvent::TrackAdded { playlist: added });
+                if let Some(leaving) = leaving {
+                    this.leave(leaving, track_ids, cx);
+                }
             },
             cx,
         );
+    }
+
+    /// Takes moved tracks out of where they came from. A liked track loses its heart, which needs
+    /// the whole track for the Undo, so only the liked songs the shelf lists can leave.
+    fn leave(&mut self, leaving: Leaving, track_ids: Vec<String>, cx: &mut Context<Self>) {
+        match leaving {
+            Leaving::Liked => {
+                let tracks = self
+                    .state(Shelf::Streaming)
+                    .tracks()
+                    .iter()
+                    .filter(|track| track.id.as_ref().is_some_and(|id| track_ids.contains(id)))
+                    .cloned()
+                    .collect();
+                self.save_tracks(tracks, false, cx);
+            }
+            Leaving::Playlist(id) => self.remove_tracks_from_playlist(id, track_ids, cx),
+        }
     }
 
     pub fn remove_from_playlist(

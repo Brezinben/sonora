@@ -26,7 +26,7 @@ use ui::{
 
 use crate::shared::cells;
 use crate::shared::confirm::{Confirm, Kind};
-use crate::shared::pins::Pinned as _;
+use crate::shared::pins::{Pinned as _, origin_tag};
 
 pub(crate) use columns::{
     HISTORY_COLUMNS, LIBRARY_COLUMNS, TrackField, album_columns, artist_columns, playlist_columns,
@@ -681,7 +681,8 @@ impl TableSource for TrackSource {
     }
 
     fn pin(&self, row: usize, cx: &App) -> Option<Pin> {
-        self.provider.tracks(cx).get(row)?.pin()
+        let origin = self.whence(cx).as_ref().and_then(origin_tag);
+        Some(self.provider.tracks(cx).get(row)?.pin()?.origin(origin))
     }
 
     fn cell(&self, cell: Cell<TrackField>, cx: &mut App) -> AnyElement {
