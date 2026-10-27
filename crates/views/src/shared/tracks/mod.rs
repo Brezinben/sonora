@@ -18,7 +18,7 @@ use gpui::{
 };
 use music::Track;
 use router::Destination;
-use state::{Detail, History, Library, Network, Origin, Playback, Progress, Shelf, Sonora, Whence};
+use state::{Detail, History, Library, Network, Origin, Playback, Progress, Shelf, Sonora};
 use ui::{
     ArrowRing, Button, Cell, ColumnSpec, Menu, Pending, Pin, ROW_GROUP, Scrollbar, TableSource,
     TableState,
@@ -275,7 +275,7 @@ impl TrackSource {
             return None;
         }
         let origin = self.whence(cx)?;
-        let once = origin.whence != Whence::Playlist
+        let once = origin.whence != state::Whence::Playlist
             || tracks.iter().filter(|other| other.id == track.id).count() == 1;
         once.then(|| origin_tag(&origin)).flatten()
     }
