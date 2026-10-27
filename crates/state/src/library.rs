@@ -287,6 +287,15 @@ pub enum Leaving {
     Playlist(String),
 }
 
+/// What a move took its track out of, kept for the Undo. A favorite keeps the whole track,
+/// since favoriting it again needs it.
+#[derive(Clone)]
+enum Left {
+    Liked(Track),
+    Playlist(String),
+    Nothing,
+}
+
 struct PlaylistMutation {
     action: &'static str,
     /// The toast shown once the provider agrees, or `None` when `on_done` reports it itself.
@@ -1927,33 +1936,6 @@ impl Library {
         addition: Addition,
         cx: &mut Context<Self>,
     ) {
-        self.add_then_leave(playlist_id, addition, None, cx);
-    }
-
-    /// Adds a track to a playlist, then takes it out of `leaving`. Nothing is taken out when the
-    /// add fails, so the track is never lost.
-    pub fn move_to_playlist(
-        &mut self,
-        playlist_id: String,
-        track_id: String,
-        leaving: Leaving,
-        cx: &mut Context<Self>,
-    ) {
-        self.add_then_leave(
-            playlist_id,
-            Addition::Tracks(vec![track_id]),
-            Some(leaving),
-            cx,
-        );
-    }
-
-    fn add_then_leave(
-        &mut self,
-        playlist_id: String,
-        addition: Addition,
-        leaving: Option<Leaving>,
-        cx: &mut Context<Self>,
-    ) {
         if addition.is_empty() {
             return;
         }
@@ -1983,39 +1965,214 @@ impl Library {
                     .await?;
                 Ok(track_ids)
             },
-            move |this, track_ids, cx| {
-                let added_count = track_ids.len() as u32;
-                this.amend_playlist(&added, |playlist| playlist.track_count += added_count, cx);
-                if let Some(ids) = this.contents.get_mut(&added) {
-                    ids.extend(track_ids.iter().cloned());
+            move |this, track_ids, cx| this.note_added(&added, track_ids, cx),
+            cx,
+        );
+    }
+
+    /// Adds a track to a playlist and takes it out of `leaving`, reported in one toast whose
+    /// Undo reverses both. A playlist the track leaves goes in the same change, so nothing
+    /// leaves when the add fails.
+    pub fn move_to_playlist(
+        &mut self,
+        playlist_id: String,
+        track_id: String,
+        leaving: Leaving,
+        cx: &mut Context<Self>,
+    ) {
+        // The provider takes out every copy, so an Undo must not touch a track already there.
+        let held = self.holds(&playlist_id, &track_id) == Some(true);
+        let origin = match &leaving {
+            Leaving::Playlist(origin) => Some(origin.clone()),
+            Leaving::Liked => None,
+        };
+        let mut invalidated = vec![playlist_id.clone()];
+        invalidated.extend(origin.clone());
+        let (target, track) = (playlist_id.clone(), track_id.clone());
+        self.mutate_playlist(
+            PlaylistMutation {
+                action: "move track to playlist",
+                done: None,
+                name: None,
+                target: None,
+                shelf: Shelf::of(&playlist_id),
+                invalidated,
+            },
+            move |client| async move {
+                client
+                    .add_tracks_to_playlist(&target, std::slice::from_ref(&track))
+                    .await?;
+                if let Some(origin) = &origin {
+                    client.remove_track_from_playlist(origin, &track).await?;
                 }
-                cx.emit(LibraryEvent::TrackAdded { playlist: added });
-                if let Some(leaving) = leaving {
-                    this.leave(leaving, track_ids, cx);
+                Ok(())
+            },
+            move |this, (), cx| {
+                this.note_added(&playlist_id, vec![track_id.clone()], cx);
+                let left = match leaving {
+                    Leaving::Playlist(origin) => {
+                        this.note_removed(&origin, vec![track_id.clone()], 1, cx);
+                        Left::Playlist(origin)
+                    }
+                    Leaving::Liked => match this.unlike(&track_id, cx) {
+                        Some(track) => Left::Liked(track),
+                        None => Left::Nothing,
+                    },
+                };
+                this.raise_move(playlist_id, track_id, left, held, cx);
+            },
+            cx,
+        );
+    }
+
+    /// Takes the heart off a moved track without a toast of its own, and hands back the track
+    /// for the Undo. Only a favorite the shelf lists can leave.
+    fn unlike(&mut self, track_id: &str, cx: &mut Context<Self>) -> Option<Track> {
+        let track = self
+            .state(Shelf::Streaming)
+            .tracks()
+            .iter()
+            .find(|track| track.id.as_deref() == Some(track_id))
+            .cloned();
+        let Some(track) = track.filter(|_| self.saved(track_id) && !self.pending(track_id)) else {
+            log::warn!("library: cannot unlike a moved track the favorites do not list");
+            return None;
+        };
+        self.toggle_saved(track.clone(), false, cx);
+        Some(track)
+    }
+
+    /// Reports a move in one toast. Its Undo takes the track back out of the playlist, unless
+    /// the playlist `held` it already, and puts it back where it came from.
+    fn raise_move(
+        &mut self,
+        playlist_id: String,
+        track_id: String,
+        left: Left,
+        held: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(name) = self
+            .playlist(&playlist_id)
+            .map(|playlist| playlist.name.clone())
+        else {
+            return;
+        };
+        let target = Some(Target::Playlist(SharedString::from(playlist_id.clone())));
+        let library = cx.weak_entity();
+        let epoch = self.epochs[Shelf::of(&playlist_id).slot()];
+        let toast = Toast::new(Outcome::Done, "toast-track-moved")
+            .name(name)
+            .target(target)
+            .undo(move |cx| {
+                let (playlist_id, track_id, left) =
+                    (playlist_id.clone(), track_id.clone(), left.clone());
+                library
+                    .update(cx, |this, cx| {
+                        if this.epochs[Shelf::of(&playlist_id).slot()] == epoch {
+                            this.unmove(playlist_id, track_id, left, held, cx);
+                        }
+                    })
+                    .ok();
+            });
+        Toasts::post(toast, cx);
+    }
+
+    /// Reverses a move for its Undo, in one change so the two playlists never wait on each
+    /// other.
+    fn unmove(
+        &mut self,
+        playlist_id: String,
+        track_id: String,
+        left: Left,
+        held: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let origin = match left {
+            Left::Playlist(origin) => Some(origin),
+            Left::Liked(track) => {
+                self.resave(track, cx);
+                None
+            }
+            Left::Nothing => None,
+        };
+        if held && origin.is_none() {
+            return;
+        }
+        let mut invalidated = vec![playlist_id.clone()];
+        invalidated.extend(origin.clone());
+        let (target, track, back) = (playlist_id.clone(), track_id.clone(), origin.clone());
+        self.mutate_playlist(
+            PlaylistMutation {
+                action: "undo a move",
+                done: None,
+                name: None,
+                target: None,
+                shelf: Shelf::of(&playlist_id),
+                invalidated,
+            },
+            move |client| async move {
+                if let Some(origin) = &back {
+                    client
+                        .add_tracks_to_playlist(origin, std::slice::from_ref(&track))
+                        .await?;
+                }
+                if !held {
+                    client.remove_track_from_playlist(&target, &track).await?;
+                }
+                Ok(())
+            },
+            move |this, (), cx| {
+                if let Some(origin) = origin {
+                    this.note_added(&origin, vec![track_id.clone()], cx);
+                }
+                if !held {
+                    this.note_removed(&playlist_id, vec![track_id], 1, cx);
                 }
             },
             cx,
         );
     }
 
-    /// Takes moved tracks out of where they came from. A liked track loses its heart, which needs
-    /// the whole track for the Undo, so only the liked songs the shelf lists can leave.
-    fn leave(&mut self, leaving: Leaving, track_ids: Vec<String>, cx: &mut Context<Self>) {
-        match leaving {
-            Leaving::Liked => {
-                let tracks: Vec<Track> = self
-                    .state(Shelf::Streaming)
-                    .tracks()
-                    .iter()
-                    .filter(|track| track.id.as_ref().is_some_and(|id| track_ids.contains(id)))
-                    .cloned()
-                    .collect();
-                if tracks.is_empty() {
-                    log::warn!("library: cannot unlike a moved track the favorites do not list");
-                }
-                self.save_tracks(tracks, false, cx);
+    /// Follows tracks a provider added to a playlist.
+    fn note_added(&mut self, playlist_id: &str, track_ids: Vec<String>, cx: &mut Context<Self>) {
+        let added_count = track_ids.len() as u32;
+        self.amend_playlist(
+            playlist_id,
+            |playlist| playlist.track_count += added_count,
+            cx,
+        );
+        if let Some(ids) = self.contents.get_mut(playlist_id) {
+            ids.extend(track_ids);
+        }
+        cx.emit(LibraryEvent::TrackAdded {
+            playlist: playlist_id.to_owned(),
+        });
+    }
+
+    /// Follows tracks a provider took out of a playlist, `dropped_count` rows in all.
+    fn note_removed(
+        &mut self,
+        playlist_id: &str,
+        track_ids: Vec<String>,
+        dropped_count: u32,
+        cx: &mut Context<Self>,
+    ) {
+        self.amend_playlist(
+            playlist_id,
+            |playlist| playlist.track_count = playlist.track_count.saturating_sub(dropped_count),
+            cx,
+        );
+        if let Some(ids) = self.contents.get_mut(playlist_id) {
+            for track in &track_ids {
+                ids.remove(track);
             }
-            Leaving::Playlist(id) => self.remove_tracks_from_playlist(id, track_ids, cx),
+        }
+        for track in track_ids {
+            cx.emit(LibraryEvent::TrackDropped {
+                playlist: playlist_id.to_owned(),
+                track,
+            });
         }
     }
 
@@ -2073,24 +2230,7 @@ impl Library {
             },
             move |this, (), cx| {
                 this.raise_rows(&emptied, name, rows, cx);
-                this.amend_playlist(
-                    &emptied,
-                    |playlist| {
-                        playlist.track_count = playlist.track_count.saturating_sub(dropped_count)
-                    },
-                    cx,
-                );
-                if let Some(ids) = this.contents.get_mut(&emptied) {
-                    for track in &gone {
-                        ids.remove(track);
-                    }
-                }
-                for track in gone {
-                    cx.emit(LibraryEvent::TrackDropped {
-                        playlist: emptied.clone(),
-                        track,
-                    });
-                }
+                this.note_removed(&emptied, gone, dropped_count, cx);
             },
             cx,
         );
