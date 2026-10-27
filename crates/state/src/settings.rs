@@ -1122,8 +1122,8 @@ impl AppSettings {
         self.values.adaptive_menu
     }
 
-    /// Whether a song dropped onto a sidebar playlist leaves the favorites or the playlist it
-    /// was dragged from.
+    /// Whether a song dropped onto a sidebar playlist leaves the playlist it was dragged from,
+    /// the favorites included.
     pub fn move_dropped_songs(&self) -> bool {
         self.values.move_dropped_songs
     }
