@@ -44,6 +44,9 @@ pub struct Pin {
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
+    /// An opaque tag for where a dragged row was picked up, which ui never reads. Never stored.
+    #[serde(skip)]
+    pub origin: Option<String>,
 }
 
 impl Pin {
@@ -53,11 +56,17 @@ impl Pin {
             id: id.into(),
             title: title.into(),
             cover: None,
+            origin: None,
         }
     }
 
     pub fn cover(mut self, cover: Option<String>) -> Self {
         self.cover = cover;
+        self
+    }
+
+    pub fn origin(mut self, origin: Option<String>) -> Self {
+        self.origin = origin;
         self
     }
 
