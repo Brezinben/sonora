@@ -264,6 +264,7 @@ impl ItemMenu {
                                         Edit::Again {
                                             playlist: playlist.clone(),
                                             track: track_ids[0].clone(),
+                                            leaving: None,
                                         },
                                         window,
                                         cx,

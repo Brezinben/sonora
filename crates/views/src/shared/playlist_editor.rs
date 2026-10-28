@@ -2,16 +2,23 @@ use gpui::prelude::*;
 use gpui::{App, Context, Entity, FocusHandle, Global, Render, Window, div};
 use i18n::t;
 use music::Playlist;
-use state::{Addition, Shelf, Sonora};
+use state::{Addition, Leaving, Shelf, Sonora};
 use ui::{ActiveTheme as _, Button, Modal};
 use ui::{Dismiss, FORM_CONTEXT, Input, Submit};
 
 #[derive(Clone)]
 pub(crate) enum Edit {
-    Create { addition: Addition, shelf: Shelf },
+    Create {
+        addition: Addition,
+        shelf: Shelf,
+    },
     Rename(Playlist),
     Delete(Playlist),
-    Again { playlist: Playlist, track: String },
+    Again {
+        playlist: Playlist,
+        track: String,
+        leaving: Option<Leaving>,
+    },
 }
 
 pub(crate) struct PlaylistEditor {
@@ -91,8 +98,13 @@ impl PlaylistEditor {
             Edit::Delete(playlist) => library.update(cx, |library, cx| {
                 library.delete_playlist(playlist.id, cx);
             }),
-            Edit::Again { playlist, track } => library.update(cx, |library, cx| {
-                library.add_to_playlist(playlist.id, track, cx);
+            Edit::Again {
+                playlist,
+                track,
+                leaving,
+            } => library.update(cx, |library, cx| match leaving {
+                Some(leaving) => library.move_to_playlist(playlist.id, track, leaving, cx),
+                None => library.add_to_playlist(playlist.id, track, cx),
             }),
             _ => {}
         }
