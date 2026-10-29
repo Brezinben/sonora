@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Control Sonora from a terminal or a script: `sonora toggle`, `next`, `current`, `search`,
+  `play -s <song>` and more, listed by `sonora --help`.
 - Drop a song onto a playlist you own or collaborate on in the sidebar to add it to that playlist.
 
 ### Changed
