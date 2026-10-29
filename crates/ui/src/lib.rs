@@ -89,7 +89,7 @@ pub use input::{
     WordLeft, WordRight, refresh_primary_paste,
 };
 pub use kbd::Kbd;
-pub use label::{Tails, eyebrow, faint, heading, upper, vacant};
+pub use label::{Tails, eyebrow, faint, heading, spoken, upper, vacant};
 pub use layout::{ALWAYS, MIN_CONTENT, ROOMY, Room, SNUG, VAST, WIDE};
 pub use lazy::Lazy;
 pub use level_meter::LevelMeter;

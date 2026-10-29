@@ -27,7 +27,7 @@ use std::{cell::RefCell, rc::Rc};
 use gpui::{
     App, AppContext as _, Context, Element, IntoElement, Render, RenderOnce, TestAppContext,
     Window,
-    accesskit::{Action, Node},
+    accesskit::{Action, Node, Role},
     div,
 };
 use ui::{Button, Checkbox, Input, Radio, Scrubber, ScrubberState, Theme, Toast};
@@ -40,9 +40,13 @@ fn snapshot(element_name: &str, element: &impl Element) -> String {
         Some(role) => {
             let mut node = Node::new(role);
             element.write_a11y_info(&mut node);
+            // AccessKit names a label by its value on every platform and ignores its aria label.
+            let name = match role {
+                Role::Label => node.value(),
+                _ => node.label(),
+            };
             format!(
-                "{element_name}: role={role:?} id={id:?} name={:?} description={:?} click={} focus={} toggled={:?} value={:?}",
-                node.label(),
+                "{element_name}: role={role:?} id={id:?} name={name:?} description={:?} click={} focus={} toggled={:?} value={:?}",
                 node.description(),
                 node.supports_action(Action::Click),
                 node.supports_action(Action::Focus),
@@ -265,5 +269,24 @@ async fn toast_announces_status_with_message(cx: &mut TestAppContext) {
     assert!(
         lines.iter().any(|line| line.contains("Playlist saved")),
         "toast exposes no accessible name for its message, screen readers announce nothing: {lines:?}"
+    );
+}
+
+#[gpui::test]
+async fn spoken_text_names_itself_from_its_value(cx: &mut TestAppContext) {
+    let lines = open_probe(cx, |_, _| {
+        let element = ui::spoken("version", "0.45.0").into_element();
+        snapshot("spoken", &element)
+    });
+    let lines = rendered(&lines, "spoken");
+    assert!(
+        lines.iter().any(|line| line.contains("role=Label")),
+        "spoken text exposes no Role::Label, screen readers skip it: {lines:?}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("name=Some(\"0.45.0\")")),
+        "spoken text has no value, a label without one is announced as nothing: {lines:?}"
     );
 }

@@ -70,12 +70,11 @@ impl RenderOnce for Row {
                     .flex_col()
                     .gap_1()
                     .child(
-                        div()
-                            .id(SharedString::from(format!("settings-row-{title}")))
-                            .role(Role::Label)
-                            .aria_label(title.clone())
-                            .truncate()
-                            .child(title.clone()),
+                        ui::spoken(
+                            SharedString::from(format!("settings-row-{title}")),
+                            title.clone(),
+                        )
+                        .truncate(),
                     )
                     .children(detail.map(|detail| {
                         div()

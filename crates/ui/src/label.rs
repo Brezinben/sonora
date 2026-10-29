@@ -1,5 +1,6 @@
+use gpui::accesskit::Role;
 use gpui::prelude::*;
-use gpui::{App, Div, FontWeight, Rems, SharedString, div, rems};
+use gpui::{App, Div, ElementId, FontWeight, Rems, SharedString, Stateful, div, rems};
 
 use crate::metrics::Text;
 use crate::theme::ActiveTheme as _;
@@ -19,6 +20,17 @@ pub trait Tails: Styled + Sized {
 }
 
 impl<T: Styled> Tails for T {}
+
+/// A line of static text that screen readers can reach. AccessKit names a `Role::Label` node by
+/// its value and ignores its aria label, so the text goes in as the value.
+pub fn spoken(id: impl Into<ElementId>, text: impl Into<SharedString>) -> Stateful<Div> {
+    let text = text.into();
+    div()
+        .id(id)
+        .role(Role::Label)
+        .aria_value(text.clone())
+        .child(text)
+}
 
 pub fn eyebrow(label: impl Into<SharedString>, cx: &App) -> Div {
     faint(cx).child(upper(label))

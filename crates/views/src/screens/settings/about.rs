@@ -78,12 +78,7 @@ impl SettingsView {
     pub(super) fn version_row(&self) -> AnyElement {
         self.row(
             t!("settings-version"),
-            div()
-                .id("settings-version-value")
-                .role(gpui::accesskit::Role::Label)
-                .aria_label(state::VERSION)
-                .child(state::VERSION)
-                .into_any_element(),
+            ui::spoken("settings-version-value", state::VERSION).into_any_element(),
         )
     }
 
