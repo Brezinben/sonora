@@ -55,6 +55,9 @@ enum Sub {
     Play,
     /// Pause playback.
     Pause,
+    /// Pause playback, or resume it when paused.
+    #[command(alias = "play-pause")]
+    Toggle,
     /// Skip to the next track.
     Next,
     /// Go back to the previous track.
@@ -163,6 +166,7 @@ fn into_command(args: Args, line: &mut Command) -> Result<CommandType, clap::Err
     let playback = match command {
         Sub::Play => PlaybackCommand::Play,
         Sub::Pause => PlaybackCommand::Pause,
+        Sub::Toggle => PlaybackCommand::Toggle,
         Sub::Next => PlaybackCommand::Next,
         Sub::Prev => PlaybackCommand::Previous,
         Sub::Seek { percent } => PlaybackCommand::Seek(percent),

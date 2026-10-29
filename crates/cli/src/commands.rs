@@ -41,6 +41,8 @@ pub enum PlaybackCommand {
     Play,
     /// Pauses current playback. Stands for `sonora pause`
     Pause,
+    /// Pauses what plays, or resumes what is paused. Stands for `sonora toggle`
+    Toggle,
     /// Plays next song in the queue. Stands for `sonora next`
     Next,
     /// Plays previous song in the queue. Stands for `sonora prev`

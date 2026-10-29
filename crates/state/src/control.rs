@@ -182,6 +182,7 @@ fn play(playback: &mut Playback, command: PlaybackCommand, cx: &mut Context<Play
     match command {
         PlaybackCommand::Play => playback.resume(cx),
         PlaybackCommand::Pause => playback.pause(cx),
+        PlaybackCommand::Toggle => playback.toggle_play(cx),
         PlaybackCommand::Next => playback.next(cx),
         PlaybackCommand::Previous => playback.previous(cx),
         PlaybackCommand::Seek(percent) => playback.seek_fraction(f32::from(percent) / 100., cx),
