@@ -979,10 +979,7 @@ impl RenderOnce for ProviderRow {
                             })
                             .children(leave.filter(|_| shown)),
                     )
-                    .child(Radio::new(
-                        SharedString::from(format!("{id}-radio")),
-                        active,
-                    ))
+                    .child(Radio::new(SharedString::from(format!("{id}-radio")), active).silent())
                     .into_any_element()
             }
             Offer::SignIn => div()

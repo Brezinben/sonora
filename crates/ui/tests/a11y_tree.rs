@@ -597,3 +597,19 @@ async fn spoken_vacant_names_itself_from_its_value(cx: &mut TestAppContext) {
         "spoken vacancy is announced as nothing: {lines:?}"
     );
 }
+
+#[gpui::test]
+async fn silent_radio_stays_out_of_the_tree(cx: &mut TestAppContext) {
+    let lines = open_probe(cx, |window, cx| {
+        let element = Radio::new("provider-radio", true)
+            .silent()
+            .render(window, cx)
+            .into_element();
+        snapshot("silent-radio", &element)
+    });
+    let lines = rendered(&lines, "silent-radio");
+    assert!(
+        lines.iter().all(|line| line.contains("NO NODE")),
+        "a silent radio still adds a nameless radio button beside the row that names it: {lines:?}"
+    );
+}

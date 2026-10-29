@@ -18,6 +18,8 @@ pub struct Radio {
     selected: bool,
     /// What a screen reader calls the option the mark stands for.
     name: Option<SharedString>,
+    /// Whether the mark is a node of its own in the accessibility tree.
+    announced: bool,
 }
 
 impl Radio {
@@ -29,6 +31,7 @@ impl Radio {
             id,
             selected,
             name: None,
+            announced: true,
         }
     }
 
@@ -36,6 +39,13 @@ impl Radio {
     /// announced as nothing but its state.
     pub fn name(mut self, name: impl Into<SharedString>) -> Self {
         self.name = Some(name.into());
+        self
+    }
+
+    /// Leaves the mark out of the accessibility tree, for a row that already reports the choice
+    /// and its name itself. Without it the reader hears a second, nameless radio button.
+    pub fn silent(mut self) -> Self {
+        self.announced = false;
         self
     }
 }
@@ -53,6 +63,7 @@ impl RenderOnce for Radio {
             mut base,
             selected,
             name,
+            announced,
         } = self;
         let theme = *cx.theme();
         let side = px((theme.metrics.control_small / px(1.) * SCALE).round());
@@ -116,9 +127,11 @@ impl RenderOnce for Radio {
             // The mark takes no clicks itself, so the row around it stays the
             // pointer target and this node only names the state for the reader.
             // Callers name it with `name`, since the mark holds no text.
-            .role(gpui::accesskit::Role::RadioButton)
-            .aria_toggled(gpui::accesskit::Toggled::from(selected))
-            .when_some(name, |this, name| this.aria_label(name))
+            .when(announced, |this| {
+                this.role(gpui::accesskit::Role::RadioButton)
+                    .aria_toggled(gpui::accesskit::Toggled::from(selected))
+                    .when_some(name, |this, name| this.aria_label(name))
+            })
             .flex()
             .flex_none()
             .items_center()
