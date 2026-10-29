@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 use crate::search::{self, Catalog};
 use crate::{
     Hit, Io, Library, Origin, Playback, PlaybackState, QueuePlacement, Repeat, Session,
-    SessionState, Shelf, join, noted,
+    SessionState, Shelf, Sonora, join, noted,
 };
 
 /// What the three searches of a query answered: songs, albums and playlists.
@@ -46,6 +46,14 @@ struct Switching {
     slug: String,
     name: &'static str,
     reply: oneshot::Sender<Reply>,
+}
+
+/// Where fetched tracks go: playing at once right after the current track, so the rest of
+/// the queue follows them, or into the queue.
+#[derive(Clone, Copy)]
+enum Place {
+    Now,
+    Queue(QueuePlacement),
 }
 
 /// An item to queue, checked on the main thread and fetched on tokio.
@@ -105,8 +113,8 @@ impl Control {
         reply.send(answer).ok();
     }
 
-    /// Fetches every item at once and queues them together, in the order they were given. One
-    /// that fails refuses the whole command, so nothing is queued half.
+    /// Queues the items of `command`, or the best hit of the search it carries, which first has
+    /// to be found.
     fn queue(
         &mut self,
         command: QueueCommand,
@@ -114,9 +122,44 @@ impl Control {
         cx: &mut Context<Self>,
     ) {
         let (items, placement) = match command {
-            QueueCommand::Add(items) => (items, QueuePlacement::End),
-            QueueCommand::PlayNext(items) => (items, QueuePlacement::Next),
+            QueueCommand::Add(items) => (items, Place::Queue(QueuePlacement::End)),
+            QueueCommand::PlayNext(items) => (items, Place::Queue(QueuePlacement::Next)),
+            QueueCommand::Play(items) => (items, Place::Now),
         };
+        if !items.iter().any(|item| matches!(item, Item::Search { .. })) {
+            return self.enqueue(items, placement, reply, cx);
+        }
+        // a search is queued alone, as the command line holds it to
+        let Ok([Item::Search { text, kind }]) = <[Item; 1]>::try_from(items) else {
+            reply.send(Reply::Failed(Failure::Malformed)).ok();
+            return;
+        };
+        let query = SearchQuery {
+            text: text.clone(),
+            kind: Some(kind),
+            limit: 1,
+        };
+        self.find(query, cx, move |this, found, cx| {
+            let failure = match found.map(|hits| hits.into_iter().next()) {
+                Ok(Some(hit)) => {
+                    return this.enqueue(vec![Item::Link(hit.link)], placement, reply, cx);
+                }
+                Ok(None) => Failure::NothingFound(text),
+                Err(failure) => failure,
+            };
+            reply.send(Reply::Failed(failure)).ok();
+        });
+    }
+
+    /// Fetches every item at once and queues them together, in the order they were given. One
+    /// that fails refuses the whole command, so nothing is queued half.
+    fn enqueue(
+        &mut self,
+        items: Vec<Item>,
+        placement: Place,
+        reply: oneshot::Sender<Reply>,
+        cx: &mut Context<Self>,
+    ) {
         let sources = items
             .into_iter()
             .map(|item| self.source(item, cx))
@@ -167,17 +210,32 @@ impl Control {
         self.pending.insert(key, task);
     }
 
-    /// Searches the current provider the way the search page does, ranked against the library
-    /// alike, and answers with the hits that have a link to act on.
+    /// Searches the current provider and answers with the hits.
     fn search(
         &mut self,
         query: SearchQuery,
         reply: oneshot::Sender<Reply>,
         cx: &mut Context<Self>,
     ) {
+        self.find(query, cx, move |_, found, _| {
+            let answer = match found {
+                Ok(hits) => Reply::Value(Value::Hits(hits)),
+                Err(failure) => Reply::Failed(failure),
+            };
+            reply.send(answer).ok();
+        });
+    }
+
+    /// Searches the current provider the way the search page does, ranked against the library
+    /// alike, and hands `then` the hits that have a link to act on.
+    fn find(
+        &mut self,
+        query: SearchQuery,
+        cx: &mut Context<Self>,
+        then: impl FnOnce(&mut Self, Result<Vec<wire::Hit>, Failure>, &mut Context<Self>) + 'static,
+    ) {
         let Some(client) = self.session.read(cx).client() else {
-            reply.send(Reply::Failed(Failure::SignedOut)).ok();
-            return;
+            return then(self, Err(Failure::SignedOut), cx);
         };
         let fetch = {
             let client = client.clone();
@@ -198,15 +256,15 @@ impl Control {
         let task = cx.spawn(async move |this, cx| {
             let fetched = join(fetch).await;
             this.update(cx, |this, cx| {
-                let answer = match fetched {
+                this.pending.remove(&key);
+                let found = match fetched {
                     Ok(found) => this.hits(&query, found, client.as_ref(), cx),
                     Err(error) => {
                         log::warn!("control: cannot search: {error:#}");
-                        Reply::Failed(Failure::Unfetched(query.text.clone()))
+                        Err(Failure::Unfetched(query.text.clone()))
                     }
                 };
-                reply.send(answer).ok();
-                this.pending.remove(&key);
+                then(this, found, cx);
             })
             .ok();
         });
@@ -222,11 +280,11 @@ impl Control {
         (tracks, albums, playlists): Found,
         client: &dyn MusicApi,
         cx: &mut App,
-    ) -> Reply {
+    ) -> Result<Vec<wire::Hit>, Failure> {
         if let (Err(error), Err(_), Err(_)) = (&tracks, &albums, &playlists) {
             log::warn!("control: cannot search: {error:#}");
             noted(error, cx);
-            return Reply::Failed(Failure::Unfetched(query.text.clone()));
+            return Err(Failure::Unfetched(query.text.clone()));
         }
         let catalog = Catalog {
             tracks: tracks.unwrap_or_default(),
@@ -242,13 +300,12 @@ impl Control {
             &HashMap::new(),
             &query.text,
         );
-        let hits = ranked
+        Ok(ranked
             .into_iter()
             .filter_map(|hit| wire_hit(hit, client))
             .filter(|hit| query.kind.is_none_or(|kind| hit.kind == kind))
             .take(query.limit.into())
-            .collect();
-        Reply::Value(Value::Hits(hits))
+            .collect())
     }
 
     /// Lists the providers or tells the current one at once. A switch answers once the session
@@ -328,6 +385,8 @@ impl Control {
         let link = match item {
             Item::Path(path) => return Ok(Source::Path(path)),
             Item::Link(link) => link,
+            // `queue` finds a search before anything reaches here
+            Item::Search { .. } => return Err(Failure::Malformed),
         };
         let session = self.session.read(cx);
         let Some((slug, linked)) = session.read_link(&link) else {
@@ -352,9 +411,9 @@ impl Control {
         }
     }
 
-    /// Queues what was fetched in one go, so the items keep their order and one toast tells
-    /// of them. A lone collection keeps its origin, several mixed ones have none.
-    fn place(&self, batches: Vec<Batch>, placement: QueuePlacement, cx: &mut App) {
+    /// Plays or queues what was fetched in one go, so the items keep their order and one toast
+    /// tells of them. A lone collection keeps its origin, several mixed ones have none.
+    fn place(&self, batches: Vec<Batch>, placement: Place, cx: &mut App) {
         let (tracks, origin) = match <[Batch; 1]>::try_from(batches) {
             Ok([batch]) => (batch.tracks, batch.origin),
             Err(batches) => (
@@ -362,8 +421,21 @@ impl Control {
                 None,
             ),
         };
-        self.playback.update(cx, |playback, cx| {
-            playback.enqueue_tracks(tracks, origin, placement, cx)
+        if tracks.is_empty() {
+            return;
+        }
+        // with nothing playing the tracks start by themselves, so only a queue that already
+        // plays is skipped forward into them
+        let playing = self.playback.read(cx).steered(cx).is_some()
+            || Sonora::global(cx).queue.read(cx).current().is_some();
+        self.playback.update(cx, |playback, cx| match placement {
+            Place::Now => {
+                playback.insert_all(tracks, 0, origin, cx);
+                if playing {
+                    playback.next(cx);
+                }
+            }
+            Place::Queue(placement) => playback.enqueue_tracks(tracks, origin, placement, cx),
         });
     }
 }

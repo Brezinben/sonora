@@ -55,8 +55,14 @@ impl Refusal {
 
 #[derive(Subcommand)]
 enum Sub {
-    /// Resume playback.
-    Play,
+    /// Resume playback, or play files, links or the best hit of a search now.
+    Play {
+        /// Files, or links of the current provider, to play now; the queue carries on after.
+        #[arg(value_hint = ValueHint::AnyPath, value_parser = queued)]
+        items: Vec<Item>,
+        #[command(flatten)]
+        searched: Searched,
+    },
     /// Pause playback.
     Pause,
     /// Pause playback, or resume it when paused.
@@ -86,13 +92,27 @@ enum Sub {
     Repeat { repeat: Option<RepeatArg> },
     /// Queue files or links after the tracks queued by hand.
     Add {
-        #[arg(required = true, value_hint = ValueHint::AnyPath, value_parser = queued)]
+        /// Files, or links of the current provider.
+        #[arg(
+            required_unless_present = "search",
+            value_hint = ValueHint::AnyPath,
+            value_parser = queued
+        )]
         items: Vec<Item>,
+        #[command(flatten)]
+        searched: Searched,
     },
     /// Queue files or links right after the current track.
     PlayNext {
-        #[arg(required = true, value_hint = ValueHint::AnyPath, value_parser = queued)]
+        /// Files, or links of the current provider.
+        #[arg(
+            required_unless_present = "search",
+            value_hint = ValueHint::AnyPath,
+            value_parser = queued
+        )]
         items: Vec<Item>,
+        #[command(flatten)]
+        searched: Searched,
     },
     /// Search the current provider. Each hit ends in the link `add` and `play-next` take.
     Search {
@@ -115,6 +135,42 @@ enum Sub {
     },
     /// Print the completion script for a shell.
     Completions { shell: Shell },
+}
+
+/// A search to take the best hit of, in place of files or links.
+#[derive(clap::Args)]
+struct Searched {
+    /// Take the best hit of a search instead; the words follow and need no quotes.
+    #[arg(
+        short = 's',
+        long = "search",
+        value_name = "QUERY",
+        num_args = 1..,
+        conflicts_with = "items"
+    )]
+    search: Option<Vec<String>>,
+    /// The kind of hit `--search` takes.
+    #[arg(
+        short = 't',
+        long = "type",
+        value_name = "TYPE",
+        default_value = "song",
+        requires = "search"
+    )]
+    kind: KindArg,
+}
+
+impl Searched {
+    /// The items to play or queue: the search when one was given, else the files and links.
+    fn or(self, items: Vec<Item>) -> Vec<Item> {
+        match self.search {
+            Some(words) => vec![Item::Search {
+                text: words.join(" "),
+                kind: self.kind.into(),
+            }],
+            None => items,
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -201,7 +257,10 @@ fn into_command(args: Args, line: &mut Command) -> Result<CommandType, clap::Err
     };
     let play = Request::Playback;
     let request = match command {
-        Sub::Play => play(PlaybackCommand::Play),
+        Sub::Play { items, searched } => match searched.or(items) {
+            items if items.is_empty() => play(PlaybackCommand::Play),
+            items => Request::Queue(QueueCommand::Play(items)),
+        },
         Sub::Pause => play(PlaybackCommand::Pause),
         Sub::Toggle => play(PlaybackCommand::Toggle),
         Sub::Next => play(PlaybackCommand::Next),
@@ -211,8 +270,10 @@ fn into_command(args: Args, line: &mut Command) -> Result<CommandType, clap::Err
         Sub::Volume { level } => play(PlaybackCommand::Volume(level)),
         Sub::Shuffle { switch } => play(PlaybackCommand::Shuffle(switch.map(Switch::from))),
         Sub::Repeat { repeat } => play(PlaybackCommand::Repeat(repeat.map(Repeat::from))),
-        Sub::Add { items } => Request::Queue(QueueCommand::Add(items)),
-        Sub::PlayNext { items } => Request::Queue(QueueCommand::PlayNext(items)),
+        Sub::Add { items, searched } => Request::Queue(QueueCommand::Add(searched.or(items))),
+        Sub::PlayNext { items, searched } => {
+            Request::Queue(QueueCommand::PlayNext(searched.or(items)))
+        }
         Sub::Search { query, kind, limit } => Request::Search(SearchQuery {
             text: query.join(" "),
             kind: kind.map(Kind::from),

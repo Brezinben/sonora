@@ -108,6 +108,9 @@ pub enum QueueCommand {
     Add(Vec<Item>),
     /// Queues items right after the current track. Stands for `sonora play-next <items>`
     PlayNext(Vec<Item>),
+    /// Plays items at once, right after the current track so the rest of the queue follows
+    /// them. Stands for `sonora play <items>`
+    Play(Vec<Item>),
 }
 
 /// Something to queue: a link of the current provider, or a file the running Sonora reads.
@@ -117,6 +120,12 @@ pub enum Item {
     Link(String),
     /// Always absolute, since the running Sonora sits in another folder.
     Path(PathBuf),
+    /// The best hit of this kind for a search on the current provider, the one `sonora search`
+    /// lists first. It is queued alone. Stands for `sonora add -s <query>`
+    Search {
+        text: String,
+        kind: Kind,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

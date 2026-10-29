@@ -133,6 +133,8 @@ pub enum Failure {
     SignInFailed(String),
     /// A sign-in is already on its way, so the provider cannot change now.
     Busy,
+    /// A search to queue the best hit of found nothing.
+    NothingFound(String),
 }
 
 /// Why a line could not be read off the socket.
