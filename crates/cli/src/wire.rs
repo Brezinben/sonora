@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 
-use crate::commands::{Repeat, Request};
+use crate::commands::{Kind, Repeat, Request};
 
 /// The protocol both ends speak. Bump it on any change an older Sonora would misread.
 pub const VERSION: u32 = 1;
@@ -39,6 +39,34 @@ pub enum Value {
     Volume(u8),
     Shuffle(bool),
     Repeat(Repeat),
+    Providers(Vec<Provider>),
+    /// The current provider's slug, `None` while none is chosen.
+    Provider(Option<String>),
+    /// What a search found, best first.
+    Hits(Vec<Hit>),
+}
+
+/// A search hit as `sonora search` lists it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Hit {
+    pub kind: Kind,
+    pub title: String,
+    /// The artists, or a playlist's owner. Empty for an artist.
+    pub by: String,
+    /// In whole seconds, for a song.
+    pub duration: Option<u64>,
+    /// What `sonora add` and `sonora play-next` take.
+    pub link: String,
+}
+
+/// A provider as `sonora providers` lists it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Provider {
+    /// What `sonora provider` takes to switch to it.
+    pub slug: String,
+    /// Whether an account, or a guest session, is stored to switch to.
+    pub stored: bool,
+    pub current: bool,
 }
 
 /// What plays now, as `sonora current` prints it. This is a public contract, so a field is
@@ -97,6 +125,14 @@ pub enum Failure {
     Unreadable(String),
     /// A link to queue could not be fetched from its provider.
     Unfetched(String),
+    /// No provider goes by this slug.
+    UnknownProvider(String),
+    /// The provider, by name, has no account stored to switch to.
+    NoAccount(String),
+    /// The provider, by name, did not sign in after the switch.
+    SignInFailed(String),
+    /// A sign-in is already on its way, so the provider cannot change now.
+    Busy,
 }
 
 /// Why a line could not be read off the socket.

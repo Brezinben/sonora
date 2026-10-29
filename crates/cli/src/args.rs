@@ -11,7 +11,8 @@ use clap::{
 use clap_complete::Shell;
 
 use crate::commands::{
-    CommandType, Item, Level, Local, PlaybackCommand, QueueCommand, Repeat, Request, Switch,
+    CommandType, Format, Item, Kind, Level, Local, PlaybackCommand, ProviderCommand, QueueCommand,
+    Repeat, Request, SearchQuery, Switch,
 };
 use crate::item;
 
@@ -21,7 +22,7 @@ use crate::item;
 #[command(
     name = "sonora",
     about = "A native music streaming client",
-    args_conflicts_with_subcommands = true,
+    override_usage = "sonora [FILE_OR_LINK]...\n       sonora [--json] <COMMAND>",
     disable_help_subcommand = true,
     disable_version_flag = true,
     arg = Arg::new("version")
@@ -36,6 +37,9 @@ struct Args {
     /// Files to play or links to open
     #[arg(value_name = "FILE_OR_LINK", value_hint = ValueHint::AnyPath)]
     items: Vec<String>,
+    /// Print the answer as JSON, for a script.
+    #[arg(long, global = true)]
+    json: bool,
 }
 
 /// A command line clap refused, or the help or version it was asked for, still to be printed.
@@ -90,6 +94,25 @@ enum Sub {
         #[arg(required = true, value_hint = ValueHint::AnyPath, value_parser = queued)]
         items: Vec<Item>,
     },
+    /// Search the current provider. Each hit ends in the link `add` and `play-next` take.
+    Search {
+        /// What to look for; the words need no quotes.
+        #[arg(required = true)]
+        query: Vec<String>,
+        /// Only hits of this kind.
+        #[arg(long = "type", short = 't', value_name = "TYPE")]
+        kind: Option<KindArg>,
+        /// How many hits to print.
+        #[arg(long, short = 'n', default_value_t = 10)]
+        limit: u16,
+    },
+    /// List the providers, whether each has an account and which one is current.
+    Providers,
+    /// Print the current provider, or switch to one that has an account.
+    Provider {
+        /// A provider as `sonora providers` lists it, such as `spotify`.
+        slug: Option<String>,
+    },
     /// Print the completion script for a shell.
     Completions { shell: Shell },
 }
@@ -99,6 +122,14 @@ enum SwitchArg {
     On,
     Off,
     Toggle,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum KindArg {
+    Song,
+    Album,
+    Artist,
+    Playlist,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -129,6 +160,7 @@ pub fn parse(args: Vec<OsString>, version: &'static str) -> Result<CommandType, 
         }
         Err(_) => Args {
             command: None,
+            json: false,
             items: args
                 .iter()
                 .skip(1)
@@ -163,22 +195,34 @@ fn into_command(args: Args, line: &mut Command) -> Result<CommandType, clap::Err
         let items = args.items.into_iter().map(item::anchored).collect();
         return Ok(CommandType::Launch(items));
     };
-    let playback = match command {
-        Sub::Play => PlaybackCommand::Play,
-        Sub::Pause => PlaybackCommand::Pause,
-        Sub::Toggle => PlaybackCommand::Toggle,
-        Sub::Next => PlaybackCommand::Next,
-        Sub::Prev => PlaybackCommand::Previous,
-        Sub::Seek { percent } => PlaybackCommand::Seek(percent),
-        Sub::Current => PlaybackCommand::CurrentTrack,
-        Sub::Volume { level } => PlaybackCommand::Volume(level),
-        Sub::Shuffle { switch } => PlaybackCommand::Shuffle(switch.map(Switch::from)),
-        Sub::Repeat { repeat } => PlaybackCommand::Repeat(repeat.map(Repeat::from)),
-        Sub::Add { items } => return Ok(queue(QueueCommand::Add(items))),
-        Sub::PlayNext { items } => return Ok(queue(QueueCommand::PlayNext(items))),
+    let format = match args.json {
+        true => Format::Json,
+        false => Format::Text,
+    };
+    let play = Request::Playback;
+    let request = match command {
+        Sub::Play => play(PlaybackCommand::Play),
+        Sub::Pause => play(PlaybackCommand::Pause),
+        Sub::Toggle => play(PlaybackCommand::Toggle),
+        Sub::Next => play(PlaybackCommand::Next),
+        Sub::Prev => play(PlaybackCommand::Previous),
+        Sub::Seek { percent } => play(PlaybackCommand::Seek(percent)),
+        Sub::Current => play(PlaybackCommand::CurrentTrack),
+        Sub::Volume { level } => play(PlaybackCommand::Volume(level)),
+        Sub::Shuffle { switch } => play(PlaybackCommand::Shuffle(switch.map(Switch::from))),
+        Sub::Repeat { repeat } => play(PlaybackCommand::Repeat(repeat.map(Repeat::from))),
+        Sub::Add { items } => Request::Queue(QueueCommand::Add(items)),
+        Sub::PlayNext { items } => Request::Queue(QueueCommand::PlayNext(items)),
+        Sub::Search { query, kind, limit } => Request::Search(SearchQuery {
+            text: query.join(" "),
+            kind: kind.map(Kind::from),
+            limit,
+        }),
+        Sub::Providers => Request::Provider(ProviderCommand::List),
+        Sub::Provider { slug } => Request::Provider(ProviderCommand::Current(slug)),
         Sub::Completions { shell } => return Ok(CommandType::Local(Local::Completions(shell))),
     };
-    Ok(CommandType::Remote(Request::Playback(playback)))
+    Ok(CommandType::Remote(request, format))
 }
 
 impl From<SwitchArg> for Switch {
@@ -191,6 +235,17 @@ impl From<SwitchArg> for Switch {
     }
 }
 
+impl From<KindArg> for Kind {
+    fn from(kind: KindArg) -> Self {
+        match kind {
+            KindArg::Song => Self::Song,
+            KindArg::Album => Self::Album,
+            KindArg::Artist => Self::Artist,
+            KindArg::Playlist => Self::Playlist,
+        }
+    }
+}
+
 impl From<RepeatArg> for Repeat {
     fn from(repeat: RepeatArg) -> Self {
         match repeat {
@@ -199,10 +254,6 @@ impl From<RepeatArg> for Repeat {
             RepeatArg::One => Self::One,
         }
     }
-}
-
-fn queue(command: QueueCommand) -> CommandType {
-    CommandType::Remote(Request::Queue(command))
 }
 
 /// Whether the first word after the program names a subcommand, so a mistake past it is the

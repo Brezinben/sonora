@@ -2,13 +2,16 @@ use std::io::{Read, Write};
 use std::process::ExitCode;
 
 use crate::args;
-use crate::commands::{Local, Repeat, Request};
+use crate::commands::{Format, Kind, Local, Repeat, Request};
 use crate::wire::{self, Failure, Reply, Value};
 
 /// The running Sonora refused the command, or the exchange broke.
 const FAILED: u8 = 1;
 /// No Sonora runs to send the command to. clap already takes 2 for usage errors.
 const NOT_RUNNING: u8 = 3;
+/// The headers of `sonora providers` and `sonora search`.
+const PROVIDERS: [&str; 2] = ["provider", "status"];
+const HITS: [&str; 5] = ["type", "title", "by", "length", "link"];
 
 /// Carries out a command that needs no running Sonora.
 pub fn local(local: Local) -> ExitCode {
@@ -18,13 +21,19 @@ pub fn local(local: Local) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// Sends `request` over `stream`, prints the reply and gives the code to exit with.
-pub fn run<S: Read + Write>(stream: &mut S, request: &Request) -> ExitCode {
+/// Sends `request` over `stream`, prints the reply in `format` and gives the code to exit with.
+pub fn run<S: Read + Write>(stream: &mut S, request: &Request, format: Format) -> ExitCode {
     // TODO: the messages here come from Fluent once render lands
     match wire::exchange(stream, request) {
         Ok(Reply::Done) => ExitCode::SUCCESS,
         Ok(Reply::Value(value)) => {
-            println!("{}", show(&value));
+            let printed = match format {
+                Format::Text => show(&value),
+                Format::Json => json(&value),
+            };
+            if !printed.is_empty() {
+                println!("{printed}");
+            }
             ExitCode::SUCCESS
         }
         Ok(Reply::Failed(failure)) => {
@@ -48,7 +57,8 @@ pub fn not_running() -> ExitCode {
     ExitCode::from(NOT_RUNNING)
 }
 
-/// A queried value as a script reads it: the track as JSON, everything else as a bare word.
+/// A queried value for a person: the track as JSON, a list as a table, anything else as a
+/// bare word.
 fn show(value: &Value) -> String {
     match value {
         Value::Current(current) => serde_json::to_string_pretty(current).unwrap_or_default(),
@@ -63,13 +73,96 @@ fn show(value: &Value) -> String {
             Repeat::One => "one",
         }
         .to_owned(),
+        Value::Providers(providers) => table(
+            PROVIDERS,
+            providers.iter().map(|provider| {
+                let status = match (provider.current, provider.stored) {
+                    (true, _) => "current",
+                    (false, true) => "connected",
+                    (false, false) => "not connected",
+                };
+                [provider.slug.clone(), status.to_owned()]
+            }),
+        ),
+        Value::Provider(slug) => slug.clone().unwrap_or_default(),
+        Value::Hits(hits) if hits.is_empty() => String::new(),
+        Value::Hits(hits) => table(
+            HITS,
+            hits.iter().map(|hit| {
+                let kind = match hit.kind {
+                    Kind::Song => "song",
+                    Kind::Album => "album",
+                    Kind::Artist => "artist",
+                    Kind::Playlist => "playlist",
+                };
+                [
+                    kind.to_owned(),
+                    hit.title.clone(),
+                    hit.by.clone(),
+                    hit.duration.map(clock).unwrap_or_default(),
+                    hit.link.clone(),
+                ]
+            }),
+        ),
+    }
+}
+
+/// A queried value for a script, as one line of JSON without the envelope around it.
+fn json(value: &Value) -> String {
+    let printed = match value {
+        Value::Current(current) => serde_json::to_string(current),
+        Value::Volume(level) => serde_json::to_string(level),
+        Value::Shuffle(on) => serde_json::to_string(on),
+        Value::Repeat(repeat) => serde_json::to_string(repeat),
+        Value::Providers(providers) => serde_json::to_string(providers),
+        Value::Provider(slug) => serde_json::to_string(slug),
+        Value::Hits(hits) => serde_json::to_string(hits),
+    };
+    printed.unwrap_or_default()
+}
+
+/// Rows under a header, every column but the last padded to its widest cell so the next one
+/// lines up. The last is left as it is, so a line ends without trailing spaces.
+fn table<const N: usize>(header: [&str; N], rows: impl Iterator<Item = [String; N]>) -> String {
+    let rows: Vec<[String; N]> = std::iter::once(header.map(str::to_owned))
+        .chain(rows)
+        .collect();
+    let mut widths = [0; N];
+    for row in &rows {
+        for (width, cell) in widths.iter_mut().zip(row) {
+            *width = (*width).max(cell.chars().count());
+        }
+    }
+    rows.iter()
+        .map(|row| {
+            let mut line = String::new();
+            for (index, cell) in row.iter().enumerate() {
+                match index + 1 == N {
+                    true => line.push_str(cell),
+                    false => line.push_str(&format!("{cell:<width$}  ", width = widths[index])),
+                }
+            }
+            line
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Whole seconds as `m:ss`, or `h:mm:ss` past an hour.
+fn clock(seconds: u64) -> String {
+    let (hours, minutes, seconds) = (seconds / 3600, seconds / 60 % 60, seconds % 60);
+    match hours {
+        0 => format!("{minutes}:{seconds:02}"),
+        _ => format!("{hours}:{minutes:02}:{seconds:02}"),
     }
 }
 
 fn describe(failure: &Failure) -> String {
     match failure {
         Failure::Version(v) => format!("the running Sonora speaks protocol {v}; restart it"),
-        Failure::Malformed => "the running Sonora could not read the command".to_owned(),
+        Failure::Malformed => {
+            "the running Sonora could not read the command; if it is older, restart it".to_owned()
+        }
         Failure::Unsupported => "this command is not supported yet".to_owned(),
         Failure::SignedOut => "no provider is signed in".to_owned(),
         Failure::OtherProvider { link, current } => {
@@ -78,5 +171,11 @@ fn describe(failure: &Failure) -> String {
         Failure::Unqueueable(item) => format!("'{item}' cannot be queued"),
         Failure::Unreadable(path) => format!("cannot read '{path}'"),
         Failure::Unfetched(link) => format!("cannot fetch '{link}'"),
+        Failure::UnknownProvider(slug) => {
+            format!("no provider is called '{slug}'; see `sonora providers`")
+        }
+        Failure::NoAccount(name) => format!("{name} has no account to switch to; sign in first"),
+        Failure::SignInFailed(name) => format!("{name} did not sign in"),
+        Failure::Busy => "a sign-in is already on its way; try again in a moment".to_owned(),
     }
 }

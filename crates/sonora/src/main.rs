@@ -67,9 +67,9 @@ fn main() -> ExitCode {
     let args = match command {
         Ok(CommandType::Launch(items)) => items,
         Ok(CommandType::Local(local)) => return cli::local(local),
-        Ok(CommandType::Remote(request)) => {
+        Ok(CommandType::Remote(request, format)) => {
             return match single::connect() {
-                Ok(mut stream) => cli::run(&mut stream, &request),
+                Ok(mut stream) => cli::run(&mut stream, &request, format),
                 Err(_) => cli::not_running(),
             };
         }

@@ -9,8 +9,18 @@ pub enum CommandType {
     Launch(Vec<String>),
     /// Answered by this process alone, whether or not Sonora runs.
     Local(Local),
-    /// Sent to the running instance, which is started first if the request allows it.
-    Remote(Request),
+    /// Sent to the running instance, which is started first if the request allows it. The
+    /// answer is printed in `Format`.
+    Remote(Request, Format),
+}
+
+/// How a command line prints what it is answered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Format {
+    /// For a person to read: words, and tables with a header.
+    Text,
+    /// For a script: the answer as JSON on one line. Stands for `--json`
+    Json,
 }
 
 /// Local CLI commands that can be executed without `Sonora` running or requesting is's socket
@@ -28,9 +38,28 @@ pub enum Request {
     /// Commands serving queue manipulation
     Queue(QueueCommand),
     /// Commands serving provider manipulation
-    Provider,
-    /// Commands serving playback manipulation
-    Search,
+    Provider(ProviderCommand),
+    /// A search on the current provider. Stands for `sonora search <query>`
+    Search(SearchQuery),
+}
+
+/// What to search for on the current provider, and how much of it to answer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SearchQuery {
+    pub text: String,
+    /// Only hits of this kind, every kind when `None`.
+    pub kind: Option<Kind>,
+    pub limit: u16,
+}
+
+/// What a search hit is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Kind {
+    Song,
+    Album,
+    Artist,
+    Playlist,
 }
 
 /// Commands serving playback manipulation
@@ -57,6 +86,18 @@ pub enum PlaybackCommand {
     Shuffle(Option<Switch>),
     /// Returns or sets playback repeat in order to `Repeat`. Stands for `sonora repeat <off|all|one>`
     Repeat(Option<Repeat>),
+}
+
+/// Commands serving provider manipulation
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProviderCommand {
+    /// Lists every provider, whether it has an account and which one is current. Stands for
+    /// `sonora providers`
+    List,
+    /// Returns the current provider's slug, or switches to the one named, which has to have an
+    /// account. Stands for `sonora provider [slug]`
+    Current(Option<String>),
 }
 
 /// Commands serving queue manipulation

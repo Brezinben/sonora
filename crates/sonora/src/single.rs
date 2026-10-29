@@ -13,8 +13,12 @@ const SOCKET: &str = match cfg!(debug_assertions) {
     true => "sonora-dev.sock",
     false => "sonora.sock",
 };
-/// How long either end waits on the other, so a stalled peer never holds a thread for good.
+/// How long the running Sonora waits for a connection to say what it wants, so a stalled peer
+/// never holds a thread for good.
 const PATIENCE: Duration = Duration::from_secs(5);
+/// How long a command line waits for its answer. A provider switch signs in and a playlist to
+/// queue is fetched before the answer, which can take a while on a slow network.
+const ANSWER: Duration = Duration::from_secs(60);
 
 /// A command from the command line and where its reply goes.
 pub type Asked = (Request, oneshot::Sender<Reply>);
@@ -92,7 +96,7 @@ pub fn claim(
 /// The running Sonora's instance socket, for a command line that talks to it.
 pub fn connect() -> io::Result<Stream> {
     let stream = Stream::connect(name()?)?;
-    stream.set_recv_timeout(Some(PATIENCE))?;
+    stream.set_recv_timeout(Some(ANSWER))?;
     Ok(stream)
 }
 
