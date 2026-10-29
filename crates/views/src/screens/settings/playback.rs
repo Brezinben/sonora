@@ -146,6 +146,8 @@ impl SettingsView {
                     .w(theme.metrics.cover * SLEEP_WIDTH)
                     .child(
                         Scrubber::new(&self.cache, fraction)
+                            .name(t!("settings-cache-size"))
+                            .value(t!("settings-cache-size-value", count = current))
                             .colors(
                                 theme.progress_bar,
                                 theme.muted_foreground.opacity(0.3),
@@ -344,6 +346,8 @@ impl SettingsView {
                     .w(theme.metrics.cover * SLEEP_WIDTH)
                     .child(
                         Scrubber::new(&self.sleep, sleep_slot(current) as f32 / SLEEP_LAST as f32)
+                            .name(t!("settings-sleep"))
+                            .value(sleep_label(current))
                             .colors(
                                 theme.progress_bar,
                                 theme.muted_foreground.opacity(0.3),

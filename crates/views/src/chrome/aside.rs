@@ -3204,6 +3204,7 @@ fn instrumental_row(progress: f32, past: bool, verse: Pixels, theme: &ui::Theme)
 
 fn wordless(key: &'static str, icon: &'static str) -> gpui::AnyElement {
     Vacancy::new(i18n::lookup(key, None))
+        .spoken(key)
         .icon(icon)
         .flex_1()
         .into_any_element()

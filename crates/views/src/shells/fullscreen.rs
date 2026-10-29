@@ -750,6 +750,8 @@ impl FullscreenView {
             .child(
                 div().flex_1().min_w_0().child(
                     Scrubber::new(&self.seek, progress)
+                        .name(t!("song-position"))
+                        .value(clock(elapsed))
                         .colors(theme.progress_bar, empty, theme.foreground)
                         .enabled(seekable)
                         .when_some(bubble, |this, (at, text)| this.bubble(at, text))
@@ -998,6 +1000,8 @@ impl FullscreenView {
                                 div().h(px(VOLUME_RISE)).flex().child(
                                     Scrubber::new(&self.volume, level)
                                         .vertical()
+                                        .name(t!("equalizer-status-volume"))
+                                        .value(percent(level))
                                         .colors(theme.progress_bar, empty, theme.foreground)
                                         .when_some(bubble, |this, (at, text)| this.bubble(at, text))
                                         .on_move(cx.listener(|this, fraction: &f32, _, cx| {

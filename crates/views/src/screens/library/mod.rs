@@ -518,7 +518,11 @@ impl LibraryView {
             ),
         };
         let shape = self.library.read(cx).shape(self.shelf);
-        Some(Vacancy::new(caption).icon(self.section.glyph(shape)))
+        Some(
+            Vacancy::new(caption)
+                .spoken("library-scanning")
+                .icon(self.section.glyph(shape)),
+        )
     }
 
     fn note(&self, cx: &App) -> Option<Vacancy> {
@@ -533,7 +537,9 @@ impl LibraryView {
             let table = self.table(self.section);
             return match (table.row_count(cx), table.filtering(cx)) {
                 (0, false) => Some(trouble::offline()),
-                (0, true) => Some(Vacancy::new(t!("library-no-matches"))),
+                (0, true) => {
+                    Some(Vacancy::new(t!("library-no-matches")).spoken("library-no-matches"))
+                }
                 _ => None,
             };
         }
@@ -555,7 +561,7 @@ impl LibraryView {
         let shape = library.shape(self.shelf);
 
         Some(match (table.filtering(cx), problem) {
-            (true, _) => Vacancy::new(t!("library-no-matches")),
+            (true, _) => Vacancy::new(t!("library-no-matches")).spoken("library-no-matches"),
             (false, Some(reason)) => self.lost(
                 "library-part-lost",
                 t!("library-part-not-loaded"),
@@ -564,6 +570,7 @@ impl LibraryView {
             ),
             (false, None) => {
                 Vacancy::new(i18n::lookup(self.section.vacancy(self.shelf, shape), None))
+                    .spoken("library-vacancy")
                     .icon(self.section.glyph(shape))
             }
         })

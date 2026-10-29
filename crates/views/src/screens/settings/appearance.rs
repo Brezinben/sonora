@@ -388,6 +388,8 @@ impl SettingsView {
                     .w(theme.metrics.cover)
                     .child(
                         Scrubber::new(&self.opacity, value)
+                            .name(t!("settings-opacity"))
+                            .value(t!("settings-opacity-value", percent = percent))
                             .colors(theme.progress_bar, theme.muted, theme.foreground)
                             .on_move(cx.listener(move |this, fraction: &f32, _, cx| {
                                 let transparency = (1. - *fraction) * MAX_TRANSPARENCY;

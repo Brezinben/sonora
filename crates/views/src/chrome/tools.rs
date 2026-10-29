@@ -107,6 +107,8 @@ pub(crate) fn filters(
                     )
                     .child(
                         RangeScrubber::new(&state, axis.share())
+                            .name(axis.label.clone())
+                            .values(unit.say(axis.value.0), unit.say(axis.value.1))
                             .stops(axis.stops())
                             .colors(theme.progress_bar, theme.muted, theme.foreground)
                             .on_change(move |share: &(f32, f32), _, cx| {

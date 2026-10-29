@@ -201,6 +201,8 @@ impl PlayerBar {
             .child(
                 div().w(width).flex_none().child(
                     Scrubber::new(&self.volume, level)
+                        .name(t!("equalizer-status-volume"))
+                        .value(percent(level))
                         .colors(theme.progress_bar, empty, theme.foreground)
                         .when_some(bubble, |this, (at, text)| this.bubble(at, text))
                         .on_move(cx.listener(|this, fraction: &f32, _, cx| {
@@ -556,6 +558,8 @@ impl Render for PlayerBar {
             .child(
                 div().flex_1().min_w_0().child(
                     Scrubber::new(&self.seek, progress)
+                        .name(t!("song-position"))
+                        .value(clock(elapsed))
                         .colors(theme.progress_bar, empty, theme.foreground)
                         .enabled(seekable)
                         .when_some(seek_bubble, |this, (at, text)| this.bubble(at, text))

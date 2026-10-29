@@ -203,24 +203,36 @@ impl SongView {
             .map(cells::count)
             .unwrap_or_else(|| t!("common-not-available"));
         let facts = [
-            (t!("song-album"), SharedString::from(album_name)),
-            (t!("song-released"), release),
-            (t!("song-streams"), streams),
-            (t!("song-position"), number),
-            (t!("song-label"), label),
             (
+                "song-fact-album",
+                t!("song-album"),
+                SharedString::from(album_name),
+            ),
+            ("song-fact-released", t!("song-released"), release),
+            ("song-fact-streams", t!("song-streams"), streams),
+            ("song-fact-position", t!("song-position"), number),
+            ("song-fact-label", t!("song-label"), label),
+            (
+                "song-fact-popularity",
                 t!("song-popularity"),
                 t!("song-popularity-value", value = track.popularity),
             ),
         ];
         InfoCard::new(t!("song-about"))
+            .spoken("song-about-card")
             .stretch()
             .child(
-                div().flex().flex_col().children(
-                    facts.into_iter().enumerate().map(|(index, (name, value))| {
-                        Fact::new(name, value).striped(index % 2 == 1)
-                    }),
-                ),
+                div()
+                    .flex()
+                    .flex_col()
+                    .children(
+                        facts
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, (id, name, value))| {
+                                Fact::new(name, value).spoken(id).striped(index % 2 == 1)
+                            }),
+                    ),
             )
             .into_any_element()
     }
@@ -242,6 +254,7 @@ impl SongView {
         };
         let portraits = self.detail.read(cx).portraits().clone();
         InfoCard::new(t!("song-credits"))
+            .spoken("song-credits-card")
             .child(
                 div()
                     .flex()
@@ -330,6 +343,7 @@ impl SongView {
             ),
         };
         InfoCard::new(t!("song-details"))
+            .spoken("song-details-card")
             .child(
                 div()
                     .flex()
@@ -337,7 +351,12 @@ impl SongView {
                     .gap_1()
                     .child(div().when_else(
                         tags.is_empty(),
-                        |this| this.child(Fact::new(t!("song-genres"), t!("common-not-available"))),
+                        |this| {
+                            this.child(
+                                Fact::new(t!("song-genres"), t!("common-not-available"))
+                                    .spoken("song-fact-genres"),
+                            )
+                        },
                         |this| {
                             this.child(
                                 div()
@@ -381,14 +400,21 @@ impl SongView {
                             )
                         },
                     ))
-                    .child(Fact::new(t!("song-language"), languages).striped(true))
-                    .child(Fact::new(
-                        t!("song-content"),
-                        match track.explicit {
-                            true => t!("song-explicit"),
-                            false => t!("song-clean"),
-                        },
-                    )),
+                    .child(
+                        Fact::new(t!("song-language"), languages)
+                            .spoken("song-fact-language")
+                            .striped(true),
+                    )
+                    .child(
+                        Fact::new(
+                            t!("song-content"),
+                            match track.explicit {
+                                true => t!("song-explicit"),
+                                false => t!("song-clean"),
+                            },
+                        )
+                        .spoken("song-fact-content"),
+                    ),
             )
             .into_any_element()
     }

@@ -652,8 +652,6 @@ impl EqualizerView {
         };
 
         let slider = div()
-            // The slider reports its value but carries no name, so its box
-            // names it for the row it stands in.
             .id(match shelf {
                 Shelf::Bass => "equalizer-bass-slider",
                 Shelf::Treble => "equalizer-treble-slider",
@@ -663,6 +661,8 @@ impl EqualizerView {
             .w(theme.metrics.cover * TONE_SLIDER)
             .child(
                 Scrubber::new(state, ((gain - low) / (high - low)) as f32)
+                    .name(title.clone())
+                    .value(t!("equalizer-decibels-value", db = signed.clone()))
                     .colors(theme.muted, theme.muted, theme.foreground)
                     .on_move(cx.listener(move |this, fraction: &f32, _, cx| {
                         let gain = tone_gain(*fraction);

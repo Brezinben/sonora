@@ -851,6 +851,7 @@ fn hint(cx: &App) -> AnyElement {
 
 fn vacancy() -> AnyElement {
     Vacancy::new(i18n::lookup("nav-nothing-pinned", None))
+        .spoken("sidebar-nothing-pinned")
         .icon("icons/pin.svg")
         .compact()
         .flex_none()
