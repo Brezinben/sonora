@@ -20,6 +20,8 @@ struct State {
     spectrum: Spectrum,
     listening: Option<Listening>,
     armed: bool,
+    /// Set by every `show`, so a step can tell the view stopped rendering.
+    seen: bool,
     visible: bool,
     beat: Option<Instant>,
 }
@@ -37,6 +39,7 @@ impl VisualizerDrive {
     pub fn show(&self, watch: EntityId, spectrum: Spectrum, window: &mut Window) {
         let mut state = self.state.borrow_mut();
         state.visible = true;
+        state.seen = true;
         state.listening = Some(spectrum.listen());
         state.spectrum = spectrum;
         if state.armed {
@@ -57,7 +60,7 @@ impl VisualizerDrive {
     fn step(&self, watch: EntityId, window: &mut Window, cx: &mut App) {
         {
             let mut state = self.state.borrow_mut();
-            if !state.visible {
+            if !state.visible || !std::mem::take(&mut state.seen) {
                 state.armed = false;
                 state.listening = None;
                 return;
