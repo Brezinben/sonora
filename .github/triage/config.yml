@@ -65,6 +65,8 @@ required:
   - a Sonora version
   - how Sonora was installed
   - the operating system, and on Linux whether the session is Wayland or X11
+  - which provider the reporter was using, for anything that touches playback, sign-in,
+    the library or search
   - what the reporter was doing when it went wrong, when neither the report nor a log says
   - a log excerpt from sonora.log covering the failure, for a crash, a hang, a sign-in
     problem or anything audio related
