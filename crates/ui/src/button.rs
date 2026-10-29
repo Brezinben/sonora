@@ -46,6 +46,13 @@ pub struct Button {
     small: bool,
     disabled: bool,
     selected: bool,
+    /// Whether the menu or panel the button opens is showing, `None` for a button that opens
+    /// nothing.
+    expanded: Option<bool>,
+    /// Whether a button that flips a setting is on, `None` for one that does not.
+    toggled: Option<bool>,
+    /// Whether the button stands for one tab of a tab list.
+    tab: bool,
     indicator: bool,
     backgroundless: bool,
     hoverless: bool,
@@ -74,6 +81,9 @@ impl Button {
             small: false,
             disabled: false,
             selected: false,
+            expanded: None,
+            toggled: None,
+            tab: false,
             indicator: false,
             backgroundless: false,
             hoverless: false,
@@ -179,6 +189,26 @@ impl Button {
         self
     }
 
+    /// Tells screen readers whether the menu or panel this button opens is showing.
+    pub fn expanded(mut self, expanded: bool) -> Self {
+        self.expanded = Some(expanded);
+        self
+    }
+
+    /// Announces the button as a toggle that is on or off, for one that flips a setting such as
+    /// shuffle. It changes nothing on screen.
+    pub fn toggled(mut self, toggled: bool) -> Self {
+        self.toggled = Some(toggled);
+        self
+    }
+
+    /// Announces the button as a tab of the tab list around it, read as chosen while `selected`
+    /// is set. It changes nothing on screen.
+    pub fn tab(mut self) -> Self {
+        self.tab = true;
+        self
+    }
+
     /// Paints an active-state dot below the icon without changing the button's layout or hit area.
     pub fn indicator(mut self, indicator: bool) -> Self {
         self.indicator = indicator;
@@ -275,6 +305,9 @@ impl RenderOnce for Button {
             small,
             disabled,
             selected,
+            expanded,
+            toggled,
+            tab,
             indicator,
             backgroundless,
             hoverless,
@@ -395,12 +428,19 @@ impl RenderOnce for Button {
         };
 
         let mut button = base
-            .role(gpui::accesskit::Role::Button)
+            .role(match tab {
+                true => gpui::accesskit::Role::Tab,
+                false => gpui::accesskit::Role::Button,
+            })
             .when_some(accessible, |this, name| this.aria_label(name))
             .when_some(description, |this, description| {
                 this.aria_description(description)
             })
-            .when(selected, |this| this.aria_selected(true))
+            .when(selected || tab, |this| this.aria_selected(selected))
+            .when_some(expanded, |this, expanded| this.aria_expanded(expanded))
+            .when_some(toggled, |this, toggled| {
+                this.aria_toggled(gpui::accesskit::Toggled::from(toggled))
+            })
             .flex()
             .flex_none()
             .items_center()

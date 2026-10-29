@@ -227,7 +227,7 @@ impl RenderOnce for Picker {
         };
         let button = button
             .when(small, Button::small)
-            .when_some(name, Button::name)
+            .when_some(name.clone(), Button::name)
             .when_some(leading, Button::leading)
             .when_some(tooltip, |button, key| match above {
                 true => button.tooltip_above(key),
@@ -251,11 +251,11 @@ impl RenderOnce for Picker {
                 None => menu,
             }
         });
-        let menu = menu.items(items).top(drop).when_else(
-            left,
-            |menu| menu.left_0(),
-            |menu| menu.right_0(),
-        );
+        let menu = menu
+            .items(items)
+            .top(drop)
+            .when_some(name, Menu::name)
+            .when_else(left, |menu| menu.left_0(), |menu| menu.right_0());
 
         let mut popover = Popover::new(key, group)
             .button(button)

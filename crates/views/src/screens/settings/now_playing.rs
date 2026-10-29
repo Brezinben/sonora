@@ -4,7 +4,7 @@ use i18n::t;
 use state::FullscreenControlsAutohide;
 use ui::{ActiveTheme as _, Levels, OptionCard, Switch, Visualizer, VisualizerStyle};
 
-use super::rows::{grid, segmented};
+use super::rows::{Announced as _, grid, segmented};
 use super::{Group, Row, SettingsView, Slot};
 
 /// How large the cross on the Off card draws.
@@ -84,38 +84,50 @@ impl SettingsView {
         let corner = (theme.radius - EDGE).max(Pixels::ZERO);
 
         grid(VisualizerStyle::ALL.len() as u16, window, cx)
-            .children(VisualizerStyle::ALL.map(|style| {
-                let thumb = match style.shown() {
-                    false => div()
-                        .size_full()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .child(
-                            svg()
-                                .path(icons::path("icons/x.svg"))
-                                .size(GLYPH)
-                                .text_color(theme.muted_foreground),
-                        ),
-                    true => div().size_full().flex().flex_col().justify_end().child(
-                        Visualizer::new(still(), height * SPECTRUM)
-                            .style_kind(style)
-                            .tint(theme.foreground)
-                            .behind(theme.secondary)
-                            .corner_radius(corner)
-                            .w_full(),
-                    ),
-                };
-                OptionCard::new(style.id())
-                    .thumb(thumb)
-                    .label(style.label())
-                    .selected(style == chosen)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.settings
-                            .update(cx, |settings, cx| settings.set_visualizer_style(style, cx));
-                        cx.notify();
-                    }))
-            }))
+            .children(
+                VisualizerStyle::ALL
+                    .into_iter()
+                    .enumerate()
+                    .map(|(place, style)| {
+                        let thumb = match style.shown() {
+                            false => div()
+                                .size_full()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    svg()
+                                        .path(icons::path("icons/x.svg"))
+                                        .size(GLYPH)
+                                        .text_color(theme.muted_foreground),
+                                ),
+                            true => div().size_full().flex().flex_col().justify_end().child(
+                                Visualizer::new(still(), height * SPECTRUM)
+                                    .style_kind(style)
+                                    .tint(theme.foreground)
+                                    .behind(theme.secondary)
+                                    .corner_radius(corner)
+                                    .w_full(),
+                            ),
+                        };
+                        OptionCard::new(style.id())
+                            .choice(
+                                style.label(),
+                                style == chosen,
+                                place,
+                                VisualizerStyle::ALL.len(),
+                            )
+                            .thumb(thumb)
+                            .label(style.label())
+                            .selected(style == chosen)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.settings.update(cx, |settings, cx| {
+                                    settings.set_visualizer_style(style, cx)
+                                });
+                                cx.notify();
+                            }))
+                    }),
+            )
             .into_any_element()
     }
 
