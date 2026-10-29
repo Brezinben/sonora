@@ -67,6 +67,7 @@ impl SettingsView {
                         SharedString::from(format!("scrobble-on-{service}")),
                         enabled,
                     )
+                    .name(title.clone())
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.scrobbling.update(cx, |scrobbling, cx| {
                             scrobbling.set_enabled(service, !enabled, cx)

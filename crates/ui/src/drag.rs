@@ -31,6 +31,15 @@ pub fn drop_gap(bounds: Bounds<Pixels>, position: Point<Pixels>, index: usize) -
     })
 }
 
+/// Whether `position` sits in the middle half of `bounds`, where a drop lands on the row itself
+/// rather than in the gap above or below it.
+pub fn drop_into(bounds: Bounds<Pixels>, position: Point<Pixels>) -> bool {
+    let quarter = bounds.size.height / 4.;
+    bounds.contains(&position)
+        && position.y > bounds.top() + quarter
+        && position.y < bounds.bottom() - quarter
+}
+
 pub fn drop_marker(edge: Edge, cx: &App) -> Div {
     let line = div()
         .absolute()

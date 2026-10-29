@@ -9,7 +9,9 @@ use std::rc::Rc;
 use ui::{ActiveTheme as _, Filter, FilterChange, FlagAxis, RangeAxis, Unit};
 
 use crate::shared::menus::{ItemMenu, TrackColumns};
+use gpui::accesskit::Role;
 use gpui::prelude::FluentBuilder as _;
+use gpui::prelude::StatefulInteractiveElement as _;
 use gpui::{
     AnyElement, App, Context, Entity, Hsla, InteractiveElement as _, IntoElement as _,
     ParentElement as _, SharedString, Styled as _, WeakEntity, div,
@@ -37,14 +39,14 @@ use sort::hits;
 /// How strongly an unsaved track's heart shows on its row.
 const SETTLED: f32 = 0.5;
 
-/// The current track and its `Playback::control`. A screen keeps the last one and redraws only
-/// when it changes.
-pub(crate) type PlaybackStatus = (Option<String>, Option<bool>);
+/// The current track, its `Playback::control` and its queue origin. A screen keeps the last
+/// status and redraws only when it changes, including a move between collections of the same song.
+pub(crate) type PlaybackStatus = (Option<String>, Option<bool>, Option<Origin>);
 
 pub(crate) fn playback_status(playback: &Entity<Playback>, cx: &App) -> PlaybackStatus {
     let playback = playback.read(cx);
     let track = playback.track().and_then(|track| track.id.clone());
-    (track, playback.control())
+    (track, playback.control(), playback.origin(cx).cloned())
 }
 pub(crate) trait Tracks: 'static {
     fn tracks<'a>(&self, cx: &'a App) -> &'a [Track];
@@ -441,7 +443,7 @@ impl TrackSource {
             cell,
             track.name.clone(),
             color,
-            track.explicit,
+            track.explicit.then(|| t!("song-explicit")),
             None,
             download_mark(cell, track, cx),
             self.liked_button(cell, track, cx),
@@ -788,13 +790,23 @@ fn download_mark(cell: &Cell<TrackField>, track: &Track, cx: &App) -> Option<Any
             .arrow(theme.muted_foreground)
             .backdrop(theme.muted)
     };
-    let ring = match downloads.track(id)? {
-        Progress::Done => ring(Some(1.)),
-        Progress::Running => ring(downloads.fraction(id)),
+    let (ring, landed) = match downloads.track(id)? {
+        Progress::Done => (ring(Some(1.)), true),
+        Progress::Running => (ring(downloads.fraction(id)), false),
         Progress::Waiting => return None,
-        Progress::Failed => ring(Some(0.)).arrow(theme.danger),
+        Progress::Failed => (ring(Some(0.)).arrow(theme.danger), false),
     };
-    Some(div().flex_none().child(ring).into_any_element())
+    let ring = div().flex_none().child(ring);
+    // Only a landed download keeps a name, since no catalogued string says what a
+    // running or failed one is doing here.
+    Some(match landed {
+        true => ring
+            .id(("downloaded-mark", cell.row))
+            .role(Role::Image)
+            .aria_label(t!("filter-downloaded"))
+            .into_any_element(),
+        false => ring.into_any_element(),
+    })
 }
 
 /// Redraws a track table whenever downloads move, so the marks on its rows keep up.

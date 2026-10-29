@@ -211,6 +211,10 @@ impl RenderOnce for Toast {
         let theme = *cx.theme();
         let pad = theme.metrics.pad * 2;
         let overrides = std::mem::take(base.style());
+        // The card reads as one status named for its message, since the text
+        // runs inside carry no nodes of their own.
+        let name = message.clone();
+        let about = detail.clone();
 
         let leading = match (progress, loading, icon) {
             (Some(done), _, _) => Some(
@@ -307,10 +311,9 @@ impl RenderOnce for Toast {
                     .ghost()
                     .small()
                     .icon("icons/x.svg")
+                    .tooltip("common-dismiss")
                     .when(!inert, |button| {
-                        button
-                            .tooltip("common-dismiss")
-                            .on_click(move |event, window, cx| dismiss(event, window, cx))
+                        button.on_click(move |event, window, cx| dismiss(event, window, cx))
                     })
             }));
 
@@ -327,6 +330,9 @@ impl RenderOnce for Toast {
         };
 
         let mut toast = base
+            .role(gpui::accesskit::Role::Status)
+            .aria_label(name)
+            .when_some(about, |this, detail| this.aria_description(detail))
             .w_full()
             .overflow_hidden()
             .rounded(corners(theme.radius))

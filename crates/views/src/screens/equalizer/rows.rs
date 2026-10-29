@@ -66,8 +66,9 @@ pub(super) enum Value {
 
 impl Fields {
     pub(super) fn new(cx: &mut Context<EqualizerView>) -> Self {
-        let mut number =
-            |unit: &'static str| cx.new(|cx| Input::new("", cx).compact().align_end().suffix(unit));
+        let mut number = |unit: &'static str| {
+            cx.new(|cx| Input::new(unit, cx).compact().align_end().suffix(unit))
+        };
         Self {
             frequency: number("equalizer-hertz"),
             gain: number("equalizer-decibels"),
@@ -227,12 +228,13 @@ impl EqualizerView {
         let theme = *cx.theme();
         let cover = theme.metrics.cover;
         let fields = &self.rows[index];
-        let enabled = Switch::new(("equalizer-filter-on", index), filter.enabled()).on_click(
-            cx.listener(move |this, _, _, cx| {
+        let enabled = Switch::new(("equalizer-filter-on", index), filter.enabled())
+            .name(t!("equalizer-filter", number = index + 1))
+            .on_click(cx.listener(move |this, _, _, cx| {
                 this.change(index, |filter| filter.with_enabled(!filter.enabled()), cx)
-            }),
-        );
+            }));
         let kind = Picker::new(KINDS[index], &self.popovers, kind_name(filter.kind()))
+            .name(t!("equalizer-filter-kind", number = index + 1))
             .width(Picker::NARROW)
             .left()
             .items(Kind::ALL.map(|kind| {

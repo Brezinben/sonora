@@ -10,7 +10,7 @@ use music::link::Linked;
 use music::{MusicApi, MusicProvider, Track};
 use tokio::sync::oneshot;
 
-use crate::{Io, Origin, Playback, PlaybackState, Repeat, Session, join, noted};
+use crate::{Io, Origin, Playback, PlaybackState, QueuePlacement, Repeat, Session, join, noted};
 
 /// Carries out what the command line asks of the running Sonora. Playback goes through
 /// `Playback`, so a device steered over Connect is the one that obeys. A command that fetches
@@ -78,9 +78,9 @@ impl Control {
         reply: oneshot::Sender<Reply>,
         cx: &mut Context<Self>,
     ) {
-        let (items, next) = match command {
-            QueueCommand::Add(items) => (items, false),
-            QueueCommand::PlayNext(items) => (items, true),
+        let (items, placement) = match command {
+            QueueCommand::Add(items) => (items, QueuePlacement::End),
+            QueueCommand::PlayNext(items) => (items, QueuePlacement::Next),
         };
         let sources = items
             .into_iter()
@@ -110,7 +110,7 @@ impl Control {
             this.update(cx, |this, cx| {
                 let answer = match fetched {
                     Ok(Ok(batches)) => {
-                        this.place(batches, next, cx);
+                        this.place(batches, placement, cx);
                         Reply::Done
                     }
                     Ok(Err(missed)) => {
@@ -164,7 +164,7 @@ impl Control {
 
     /// Queues what was fetched in one go, so the items keep their order and one toast tells
     /// of them. A lone collection keeps its origin, several mixed ones have none.
-    fn place(&self, batches: Vec<Batch>, next: bool, cx: &mut App) {
+    fn place(&self, batches: Vec<Batch>, placement: QueuePlacement, cx: &mut App) {
         let (tracks, origin) = match <[Batch; 1]>::try_from(batches) {
             Ok([batch]) => (batch.tracks, batch.origin),
             Err(batches) => (
@@ -172,9 +172,8 @@ impl Control {
                 None,
             ),
         };
-        self.playback.update(cx, |playback, cx| match next {
-            true => playback.play_next_all(tracks, origin, cx),
-            false => playback.enqueue_all(tracks, origin, cx),
+        self.playback.update(cx, |playback, cx| {
+            playback.enqueue_tracks(tracks, origin, placement, cx)
         });
     }
 }
@@ -227,11 +226,11 @@ fn current(playback: &Playback, cx: &App) -> Option<Current> {
     let track = playback.shown_track(cx)?;
     let (state, position) = match playback.steered(cx) {
         Some(steered) => {
-            let state = match steered.playing {
+            let state = match steered.state.playing {
                 true => State::Playing,
                 false => State::Paused,
             };
-            (state, steered.position)
+            (state, steered.state.live_position())
         }
         None => {
             let state = match playback.state() {

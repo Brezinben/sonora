@@ -61,6 +61,7 @@ impl SettingsView {
         self.row(
             t!("settings-offline-mode"),
             Switch::new("offline-mode", on)
+                .name(t!("settings-offline-mode"))
                 .on_click(move |_, _, cx| {
                     let network = Network::global(cx);
                     network.update(cx, |network, cx| network.set_offline(!on, cx));

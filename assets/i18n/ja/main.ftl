@@ -267,7 +267,6 @@ view-list = リスト
 view-cards = グリッド
 
 # toolbar
-tool-columns = 列
 tool-sort = 並べ替え
 tool-filters = フィルター
 
@@ -922,7 +921,6 @@ settings-romanized-lyrics = ローマ字歌詞
 settings-romanized-lyrics-detail = 選択した文字体系の発音表記を、このデバイス上で生成して表示する
 settings-romanization-writing-systems = 文字体系
 settings-lyrics-priority = 提供元の優先順位
-settings-lyrics-priority-detail = 同じ種類の歌詞の中では、上位の提供元を表示する
 settings-lyrics-providers-detail = 歌詞を検索するサービスを選ぶ
 settings-lyrics-providers-selected = { $count ->
    *[other] { $count }件を選択
@@ -1060,7 +1058,9 @@ toast-open-failed = { $name } を開けませんでした
 toast-open-unsupported = { $name } は Sonora で再生できる音声ファイルではありません
 toast-open-all-failed = { $count }個のファイルを開けませんでした
 toast-open-some-failed = 一部のファイルを開けませんでした
-toast-keys-refused = Spotify がこのアカウントに再生キーを発行していません
+toast-keys-error = 再生キーのエラー
+toast-keys-refused = Spotify が使えないかも
+toast-why = なぜ？
 toast-sign-in-to-play = { $name } のストリーミングにはサインインが必要です
 toast-restore-failed = { $name } に再サインインできなかったため、Sonora はそれなしで続行しました
 toast-track-unplayable = { $name } を再生できませんでした

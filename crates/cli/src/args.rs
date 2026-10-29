@@ -4,7 +4,10 @@ use std::path::{self, Path};
 use std::process::ExitCode;
 
 use clap::error::ErrorKind;
-use clap::{CommandFactory as _, Parser, Subcommand, ValueEnum, ValueHint};
+use clap::{
+    Arg, ArgAction, Command, CommandFactory as _, FromArgMatches as _, Parser, Subcommand,
+    ValueEnum, ValueHint,
+};
 use clap_complete::Shell;
 
 use crate::commands::{
@@ -17,17 +20,33 @@ use crate::item;
 #[derive(Parser)]
 #[command(
     name = "sonora",
-    version,
     about = "A native music streaming client",
     args_conflicts_with_subcommands = true,
-    disable_help_subcommand = true
+    disable_help_subcommand = true,
+    disable_version_flag = true,
+    arg = Arg::new("version")
+        .short('v')
+        .long("version")
+        .action(ArgAction::Version)
+        .help("Print the version"),
 )]
 struct Args {
     #[command(subcommand)]
     command: Option<Sub>,
-    /// Files or links to open.
-    #[arg(value_hint = ValueHint::AnyPath)]
+    /// Files to play or links to open
+    #[arg(value_name = "FILE_OR_LINK", value_hint = ValueHint::AnyPath)]
     items: Vec<String>,
+}
+
+/// A command line clap refused, or the help or version it was asked for, still to be printed.
+pub struct Refusal(clap::Error);
+
+impl Refusal {
+    /// Prints it, help to stdout and a mistake to stderr, and gives the code to exit with.
+    pub fn exit(self) -> ExitCode {
+        self.0.print().ok();
+        ExitCode::from(self.0.exit_code() as u8)
+    }
 }
 
 #[derive(Subcommand)]
@@ -86,25 +105,54 @@ enum RepeatArg {
     One,
 }
 
-/// Reads the command line, `args` including the program name. Help, version and usage errors
-/// are printed here and come back as the code to exit with.
-pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<CommandType, ExitCode> {
-    let args = Args::try_parse_from(args).map_err(fail)?;
-    into_command(args).map_err(fail)
+/// Reads the command line, `args` including the program name, with `version` for `--version`.
+/// A mistake in a subcommand is refused. Any other, such as a flag a launcher added that Sonora
+/// does not know, leaves the flags out and keeps the rest as things to open, so Sonora still
+/// starts.
+pub fn parse(args: Vec<OsString>, version: &'static str) -> Result<CommandType, Refusal> {
+    let mut command = Args::command().version(version);
+    let parsed = command
+        .try_get_matches_from_mut(&args)
+        .and_then(|matches| Args::from_arg_matches(&matches));
+    let parsed = match parsed {
+        Ok(parsed) => parsed,
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+            ) || names_subcommand(&command, &args) =>
+        {
+            return Err(Refusal(error));
+        }
+        Err(_) => Args {
+            command: None,
+            items: args
+                .iter()
+                .skip(1)
+                .filter_map(|arg| arg.to_str())
+                .filter(|arg| !arg.starts_with('-'))
+                .map(str::to_owned)
+                .collect(),
+        },
+    };
+    into_command(parsed, &mut command).map_err(Refusal)
 }
 
 /// Writes the completion script for `shell` to stdout. It is built whole first, since clap
 /// panics when stdout closes under it, as it does when piped into `head`.
 pub fn completions(shell: Shell) {
+    // the version only has to be there for `-v` to build, a script never shows it
+    let mut command = Args::command().version(env!("CARGO_PKG_VERSION"));
     let mut script = Vec::new();
-    clap_complete::generate(shell, &mut Args::command(), "sonora", &mut script);
+    clap_complete::generate(shell, &mut command, "sonora", &mut script);
     io::stdout().write_all(&script).ok();
 }
 
-fn into_command(args: Args) -> Result<CommandType, clap::Error> {
+/// `line` is the command the arguments were read against, for the usage a refusal prints.
+fn into_command(args: Args, line: &mut Command) -> Result<CommandType, clap::Error> {
     let Some(command) = args.command else {
         if let Some(typo) = args.items.iter().find(|item| is_typo(item)) {
-            return Err(Args::command().error(
+            return Err(line.error(
                 ErrorKind::InvalidSubcommand,
                 format!("unrecognized subcommand '{typo}'"),
             ));
@@ -153,10 +201,14 @@ fn queue(command: QueueCommand) -> CommandType {
     CommandType::Remote(Request::Queue(command))
 }
 
-/// Prints a clap error, or the help and version it carries, and gives its exit code.
-fn fail(error: clap::Error) -> ExitCode {
-    error.print().ok();
-    ExitCode::from(error.exit_code() as u8)
+/// Whether the first word after the program names a subcommand, so a mistake past it is the
+/// user's to see rather than a launcher's to ignore.
+fn names_subcommand(command: &Command, args: &[OsString]) -> bool {
+    args.iter()
+        .skip(1)
+        .filter_map(|arg| arg.to_str())
+        .find(|arg| !arg.starts_with('-'))
+        .is_some_and(|word| command.find_subcommand(word).is_some())
 }
 
 /// A volume as typed: a signed step from the current level, or a level to land on.

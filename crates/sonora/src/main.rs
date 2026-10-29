@@ -2,6 +2,7 @@
 
 mod actions;
 mod assets;
+mod console;
 mod dock;
 #[cfg(target_os = "macos")]
 mod gestures;
@@ -56,8 +57,14 @@ fn main() -> ExitCode {
     }
     // A command for the running Sonora is sent and answered here, without a log file, a
     // runtime or a window. Older macOS adds a `-psn_` argument to a Finder launch.
-    let args = std::env::args_os().filter(|arg| !arg.to_string_lossy().starts_with("-psn_"));
-    let args = match cli::parse(args) {
+    let args = std::env::args_os()
+        .filter(|arg| !arg.to_string_lossy().starts_with("-psn_"))
+        .collect();
+    let command = cli::parse(args, state::VERSION);
+    if !matches!(command, Ok(CommandType::Launch(_))) {
+        console::attach();
+    }
+    let args = match command {
         Ok(CommandType::Launch(items)) => items,
         Ok(CommandType::Local(local)) => return cli::local(local),
         Ok(CommandType::Remote(request)) => {
@@ -66,7 +73,7 @@ fn main() -> ExitCode {
                 Err(_) => cli::not_running(),
             };
         }
-        Err(code) => return code,
+        Err(refusal) => return refusal.exit(),
     };
     logging::init();
 

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Div, ElementId, Entity, FontWeight, MouseButton, MouseDownEvent, Pixels,
@@ -10,7 +11,7 @@ use music::{Album, Track};
 use state::{Origin, Playback};
 use ui::{
     ActiveTheme as _, Artwork, Button, ExplicitBadge, LEADING, Pin, Pinnable as _, Skeleton,
-    TableState, Text, upper,
+    TableState, Tails as _, Text, upper,
 };
 
 use crate::shared::tracks::{self, TrackSource};
@@ -254,10 +255,14 @@ impl RenderOnce for HeroPlayButton {
         }
         let playing = {
             let playback = self.playback.read(cx);
-            let current = playback.track().and_then(|track| track.id.as_deref());
-            current
-                .filter(|current| self.listing.holds(current, cx))
-                .and_then(|_| playback.control())
+            match self.from.clone().or_else(|| self.listing.whence(cx)) {
+                Some(origin) => playback.playing_from(&origin, cx),
+                None => playback
+                    .track()
+                    .and_then(|track| track.id.as_deref())
+                    .filter(|current| self.listing.holds(current, cx))
+                    .and_then(|_| playback.control()),
+            }
         };
         let (label, icon) = match playing {
             Some(true) => (t!("play-pause"), "icons/pause.svg"),
@@ -433,7 +438,7 @@ impl RenderOnce for PageHero {
         }
 
         div()
-            .id(self.id)
+            .id(self.id.clone())
             .when_some(self.pin, |hero, pin| hero.pin(pin))
             .flex()
             .flex_none()
@@ -478,8 +483,12 @@ impl RenderOnce for PageHero {
                             .font_weight(FontWeight::BOLD)
                             .child(
                                 div()
+                                    .id((self.id, "title"))
+                                    .role(Role::Heading)
+                                    .aria_label(self.title.clone())
                                     .min_w_0()
                                     .truncate()
+                                    .tails()
                                     .when_some(drag_start, |this, drag_start: Rc<DragStart>| {
                                         this.on_mouse_down(
                                             MouseButton::Right,

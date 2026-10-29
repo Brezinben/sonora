@@ -329,7 +329,6 @@ view-list = Список
 view-cards = Картки
 
 # toolbar
-tool-columns = Колонки
 tool-sort = Сортування
 tool-filters = Фільтри
 
@@ -1008,7 +1007,6 @@ settings-romanized-lyrics = Романізація тексту
 settings-romanized-lyrics-detail = Показувати локально зібрану вимову для вибраних систем письма
 settings-romanization-writing-systems = Системи письма
 settings-lyrics-priority = Пріоритет джерел
-settings-lyrics-priority-detail = Серед текстів одного типу Sonora показує те джерело, що вище в списку
 settings-lyrics-providers-detail = Виберіть сервіси для пошуку текстів пісень
 settings-lyrics-providers-selected = { $count ->
     [one] Вибрано { $count } джерело
@@ -1148,7 +1146,9 @@ toast-open-failed = Не вдалося відкрити { $name }
 toast-open-unsupported = { $name } не є аудіофайлом, який може відтворити Sonora
 toast-open-all-failed = Не вдалося відкрити файли ({ $count })
 toast-open-some-failed = Деякі файли не вдалося відкрити
-toast-keys-refused = Spotify не надає цьому обліковому запису ключі відтворення
+toast-keys-error = Помилка ключа
+toast-keys-refused = Spotify може не грати
+toast-why = Чому?
 toast-sign-in-to-play = { $name } віддає музику лише тим, хто увійшов в акаунт
 toast-restore-failed = Не вдалося знову увійти в { $name }, тож Sonora працює без нього
 toast-track-unplayable = Не вдалося відтворити { $name }

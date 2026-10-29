@@ -112,6 +112,7 @@ impl SettingsView {
         self.row(
             t!("settings-lyrics-for-local-files"),
             Switch::new("lyrics-for-local-files", on)
+                .name(t!("settings-lyrics-for-local-files"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {
                         settings.set_lyrics_for_local_files(!on, cx)
@@ -198,6 +199,7 @@ impl SettingsView {
             SharedString::from(format!("lyrics-source-on-{provider}")),
             on,
         )
+        .name(source_name(provider))
         .on_click(cx.listener(move |this, _, _, cx| {
             this.settings.update(cx, |settings, cx| {
                 settings.set_lyrics_provider(provider, !on, cx)
@@ -313,6 +315,7 @@ impl SettingsView {
         self.row(
             t!("settings-karaoke-lyrics"),
             Switch::new("karaoke-lyrics", on)
+                .name(t!("settings-karaoke-lyrics"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_karaoke_lyrics(!on, cx));
@@ -327,6 +330,7 @@ impl SettingsView {
         self.row(
             t!("settings-blur-lyrics"),
             Switch::new("blur-lyrics", on)
+                .name(t!("settings-blur-lyrics"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_blur_lyrics(!on, cx));
@@ -362,13 +366,15 @@ impl SettingsView {
             .items_center()
             .gap_2()
             .when(on, |this| this.child(picker))
-            .child(Switch::new("romanized-lyrics", on).on_click(cx.listener(
-                move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_romanized_lyrics(!on, cx);
-                    });
-                },
-            )));
+            .child(
+                Switch::new("romanized-lyrics", on)
+                    .name(t!("settings-romanized-lyrics"))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.settings.update(cx, |settings, cx| {
+                            settings.set_romanized_lyrics(!on, cx);
+                        });
+                    })),
+            );
 
         self.row(t!("settings-romanized-lyrics"), action.into_any_element())
     }

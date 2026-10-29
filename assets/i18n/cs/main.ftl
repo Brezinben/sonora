@@ -333,7 +333,6 @@ view-list = Seznam
 view-cards = Mřížka
 
 # toolbar
-tool-columns = Sloupce
 tool-sort = Řazení
 tool-filters = Filtry
 
@@ -1007,7 +1006,6 @@ settings-romanized-lyrics = Romanizované texty
 settings-romanized-lyrics-detail = Zobrazuje místně vytvořenou výslovnost pro vybrané písmové systémy
 settings-romanization-writing-systems = Písmové systémy
 settings-lyrics-priority = Priorita poskytovatelů
-settings-lyrics-priority-detail = Mezi texty stejného druhu Sonora zobrazí ten ze zdroje výš v seznamu
 settings-lyrics-providers-detail = Vyber služby, ve kterých se mají hledat texty písní
 settings-lyrics-providers-selected = { $count ->
     [one] Vybrán { $count } poskytovatel
@@ -1167,7 +1165,9 @@ toast-open-all-failed = { $count ->
    *[other] { $count } souborů se nepodařilo otevřít
 }
 toast-open-some-failed = Některé soubory se nepodařilo otevřít
-toast-keys-refused = Spotify tomuto účtu neuděluje klíče pro přehrávání
+toast-keys-error = Chyba klíče pro přehrávání
+toast-keys-refused = Spotify tu nemusí fungovat
+toast-why = Proč?
 toast-sign-in-to-play = { $name } lze streamovat jen po přihlášení
 toast-restore-failed = Službu { $name } se nepodařilo znovu přihlásit, a tak Sonora pokračovala bez ní
 toast-track-unplayable = { $name } se nepodařilo přehrát

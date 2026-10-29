@@ -1,10 +1,12 @@
 use std::rc::Rc;
 
 use ui::{
-    ActiveTheme as _, Card, Deck, DraggedPin, Edge, MenuItem, Panel, Picker, Pin, Pinnable as _,
-    Popup, SNUG, Scroller, Shield, Side, Spot, Tabs, Text, Vacancy, drop_gap, drop_marker,
+    ActiveTheme as _, Card, Deck, DraggedPin, Edge, MenuItem, Panel, Picker, Pin, PinKind,
+    Pinnable as _, Popup, SNUG, Scroller, Shield, Side, Spot, Tabs, Text, Vacancy, drop_gap,
+    drop_into, drop_marker,
 };
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, DragMoveEvent, ElementId, Entity, MouseButton, MouseDownEvent,
@@ -19,6 +21,7 @@ use state::{AppSettings, Library, Origin, PinSort, Pins, Playback, Session, Shel
 
 use crate::shared::menus::{ItemMenu, item_menu};
 use crate::shared::nav::nav_row;
+use crate::shared::playlist_editor::{Edit, PlaylistEditor};
 
 /// The one drag list the pinned section keeps, so a pin dropped anywhere in it lands in order.
 const PINS: &str = "sidebar-pins";
@@ -102,6 +105,8 @@ pub(crate) struct SidebarLeft {
     pinned_open: bool,
     dropping: bool,
     drop_gap: Option<usize>,
+    /// The playlist a dragged song is held over, which takes the song instead of a new pin.
+    drop_into: Option<Pin>,
     playback: Entity<Playback>,
     pins: Entity<Pins>,
     library: Entity<Library>,
@@ -158,6 +163,7 @@ impl SidebarLeft {
             pinned_open,
             dropping: false,
             drop_gap: None,
+            drop_into: None,
             playback,
             pins,
             library,
@@ -322,7 +328,7 @@ impl SidebarLeft {
                         false => rest.get(index - held),
                     };
                     match pin {
-                        Some(pin) => this.pin_row(index, pin.clone(), held, cx),
+                        Some(pin) => this.pin_row(index, pin.clone(), held, count, cx),
                         None => div().into_any_element(),
                     }
                 }))
@@ -368,6 +374,9 @@ impl SidebarLeft {
             .child(
                 div()
                     .id("sidebar-pins-toggle")
+                    .role(Role::Button)
+                    .aria_label(i18n::lookup("nav-pinned", None))
+                    .aria_expanded(open)
                     .flex()
                     .flex_1()
                     .min_w_0()
@@ -404,6 +413,7 @@ impl SidebarLeft {
                         return;
                     }
                     this.drop_gap = Some(0);
+                    this.drop_into = None;
                     cx.notify();
                 }),
             )
@@ -463,12 +473,21 @@ impl SidebarLeft {
 
     /// One entry. The first `count` of them are the pins, which carry the drop slots. The rest
     /// is the library underneath, which can be dragged up into the pins but holds no slot.
-    fn pin_row(&self, index: usize, pin: Pin, count: usize, cx: &mut Context<Self>) -> AnyElement {
+    fn pin_row(
+        &self,
+        index: usize,
+        pin: Pin,
+        count: usize,
+        total: usize,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let theme = *cx.theme();
         let accent = theme.sidebar_accent;
         let destination = Destination::from(&pin);
         let active = destination == self.trail.read(cx).current();
         let opened = pin.clone();
+        let target = pin.clone();
+        let aimed = self.drop_into.as_ref() == Some(&pin);
         let held = index < count;
         // Only worth marking when the library sits alongside, since otherwise every row is a pin.
         let marked = held && self.settings.read(cx).sidebar_full_library();
@@ -497,7 +516,8 @@ impl SidebarLeft {
                 false => theme.muted_foreground,
             })
             .meta(caption(pin.kind.key(), marked, cx))
-            .when(active, |card| card.bg(accent))
+            .when(active && !aimed, |card| card.bg(accent))
+            .chosen(aimed)
             .hover(move |style| style.bg(accent))
             .press(move |_, _, cx| navigate(destination.clone(), cx))
             .menu(cx.listener(move |this, event: &MouseDownEvent, _, cx| {
@@ -513,14 +533,24 @@ impl SidebarLeft {
             .on_drag_move(
                 cx.listener(move |this, event: &DragMoveEvent<DraggedPin>, _, cx| {
                     let Some(gap) = drop_gap(event.bounds, event.event.position, index) else {
+                        // A fast move can skip the edges, so the row lets go of its aim itself.
+                        if this.drop_into.as_ref() == Some(&target) {
+                            this.drop_into = None;
+                            cx.notify();
+                        }
                         return;
                     };
-                    let gap = Some(match held {
-                        true => gap,
-                        false => count,
-                    });
-                    if this.drop_gap != gap {
+                    let into = (drop_into(event.bounds, event.event.position)
+                        && this.accepts(&event.drag(cx).pin, &target, cx))
+                    .then(|| target.clone());
+                    let gap = match (&into, held) {
+                        (Some(_), _) => None,
+                        (None, true) => Some(gap),
+                        (None, false) => Some(count),
+                    };
+                    if this.drop_gap != gap || this.drop_into != into {
                         this.drop_gap = gap;
+                        this.drop_into = into;
                         cx.notify();
                     }
                 }),
@@ -528,6 +558,9 @@ impl SidebarLeft {
 
         div()
             .id(("pinned-slot", index))
+            .role(Role::ListItem)
+            .aria_position_in_set(index + 1)
+            .aria_size_of_set(total)
             .relative()
             .flex_none()
             .w_full()
@@ -606,6 +639,30 @@ impl SidebarLeft {
         .into_any_element()
     }
 
+    /// Whether `target` takes the dragged `song`: a playlist the listener may edit, on the same
+    /// shelf as the song, since a provider adds only its own tracks.
+    fn accepts(&self, song: &Pin, target: &Pin, cx: &App) -> bool {
+        song.kind == PinKind::Song
+            && target.kind == PinKind::Playlist
+            && Shelf::of(&song.id) == Shelf::of(&target.id)
+            && self.library.read(cx).is_editable(&target.id)
+    }
+
+    /// Adds a dropped song to a playlist, and asks first when the playlist holds the song already.
+    fn add_into(&self, target: &Pin, song: &Pin, window: &mut Window, cx: &mut Context<Self>) {
+        let library = self.library.read(cx);
+        let Some(playlist) = library.playlist(&target.id).cloned() else {
+            return;
+        };
+        let track = song.id.clone();
+        match library.holds(&playlist.id, &track) == Some(true) {
+            true => PlaylistEditor::open(Edit::Again { playlist, track }, window, cx),
+            false => self.library.update(cx, |library, cx| {
+                library.add_to_playlist(playlist.id, track, cx)
+            }),
+        }
+    }
+
     fn persist(&self, cx: &mut Context<Self>) {
         let width = self.width / px(1.);
         let open = self.open;
@@ -627,6 +684,7 @@ impl Render for SidebarLeft {
         if !cx.has_active_drag() {
             self.dropping = false;
             self.drop_gap = None;
+            self.drop_into = None;
         }
 
         let mut rows = self.navigation(cx);
@@ -657,11 +715,16 @@ impl Render for SidebarLeft {
                 }
                 cx.notify();
             }))
-            .on_drop(cx.listener(|this, dragged: &DraggedPin, _, cx| {
+            .on_drop(cx.listener(|this, dragged: &DraggedPin, window, cx| {
                 let gap = this.drop_gap.take();
                 this.dropping = false;
-                let pin = dragged.pin.clone();
-                this.pins.update(cx, |pins, cx| pins.place(pin, gap, cx));
+                match this.drop_into.take() {
+                    Some(playlist) => this.add_into(&playlist, &dragged.pin, window, cx),
+                    None => {
+                        let pin = dragged.pin.clone();
+                        this.pins.update(cx, |pins, cx| pins.place(pin, gap, cx));
+                    }
+                }
                 cx.notify();
             }))
             .when(!self.is_open(), |this| this.hidden())
@@ -681,6 +744,8 @@ impl Render for SidebarLeft {
                             .size_full()
                             .child(
                                 div()
+                                    .id("sidebar-navigation")
+                                    .role(Role::Navigation)
                                     .flex()
                                     .flex_col()
                                     .gap_1()

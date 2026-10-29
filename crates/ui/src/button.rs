@@ -35,6 +35,8 @@ enum Variant {
 pub struct Button {
     base: Stateful<Div>,
     label: Option<SharedString>,
+    /// What a screen reader calls the button when that differs from the visible label.
+    name: Option<SharedString>,
     icon: Option<SharedString>,
     /// A small element drawn after the icon and before the label, as a picker's curve sketch.
     leading: Option<AnyElement>,
@@ -63,6 +65,7 @@ impl Button {
         Self {
             base: div().id(id),
             label: None,
+            name: None,
             icon: None,
             leading: None,
             detail: None,
@@ -87,6 +90,13 @@ impl Button {
 
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Names the button for screen readers in place of its label, which is then read after the
+    /// name. A picker passes the setting it changes, so the current choice is not its only name.
+    pub fn name(mut self, name: impl Into<SharedString>) -> Self {
+        self.name = Some(name.into());
         self
     }
 
@@ -256,6 +266,7 @@ impl RenderOnce for Button {
         let Self {
             mut base,
             label,
+            name,
             icon,
             leading,
             detail,
@@ -364,8 +375,32 @@ impl RenderOnce for Button {
         };
         let pressed = state_style(active, pressed, frosting);
         let overrides = std::mem::take(base.style());
+        // A node reaches the tree only with a role, and an icon-only button has
+        // no label of its own, so its tooltip key doubles as the accessible
+        // name the same way the hover text does.
+        // A nameless button still takes a role, so it lands in the tree with
+        // nothing to announce. Fail loudly in dev instead of going silent.
+        debug_assert!(
+            label.is_some() || name.is_some() || tooltip.is_some(),
+            "button without label or tooltip is invisible to screen readers"
+        );
+        let (accessible, description) = match name {
+            Some(name) => (Some(name), label.clone().or_else(|| detail.clone())),
+            None => (
+                label
+                    .clone()
+                    .or_else(|| tooltip.as_ref().map(|(key, _)| i18n::lookup(key, None))),
+                detail.clone(),
+            ),
+        };
 
         let mut button = base
+            .role(gpui::accesskit::Role::Button)
+            .when_some(accessible, |this, name| this.aria_label(name))
+            .when_some(description, |this, description| {
+                this.aria_description(description)
+            })
+            .when(selected, |this| this.aria_selected(true))
             .flex()
             .flex_none()
             .items_center()

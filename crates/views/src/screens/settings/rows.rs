@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Div, ElementId, SharedString, Window, div};
 use ui::{ActiveTheme as _, Button, Room, TabBar};
@@ -11,6 +12,8 @@ type Pick<T> = Rc<dyn Fn(&T, &mut Window, &mut App)>;
 
 /// One row of a group: the label and optional explanation at the start, the control at the end.
 /// It stands at least one list row tall, with no inset, so labels line up with group headings.
+/// The label and explanation are text in the accessibility tree, but nothing ties them to the
+/// control, so the caller names a switch, picker or segmented control after the row as well.
 #[derive(IntoElement)]
 pub(crate) struct Row {
     title: SharedString,
@@ -66,9 +69,19 @@ impl RenderOnce for Row {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(div().truncate().child(title))
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("settings-row-{title}")))
+                            .role(Role::Label)
+                            .aria_label(title.clone())
+                            .truncate()
+                            .child(title.clone()),
+                    )
                     .children(detail.map(|detail| {
                         div()
+                            .id(SharedString::from(format!("settings-row-detail-{title}")))
+                            .role(Role::Paragraph)
+                            .aria_label(detail.clone())
                             .text_size(theme.text(ui::Text::Small))
                             .text_color(theme.muted_foreground)
                             .child(detail)

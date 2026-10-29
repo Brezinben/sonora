@@ -310,7 +310,6 @@ view-list = Lista
 view-cards = Grade
 
 # toolbar
-tool-columns = Colunas
 tool-sort = Ordenar
 tool-filters = Filtros
 
@@ -974,7 +973,6 @@ settings-romanized-lyrics = Letras romanizadas
 settings-romanized-lyrics-detail = Mostrar pronúncia gerada localmente para sistemas de escrita selecionados
 settings-romanization-writing-systems = Sistemas de escrita
 settings-lyrics-priority = Prioridade dos serviços
-settings-lyrics-priority-detail = Entre letras do mesmo tipo, o Sonora mostra a fonte que está mais acima
 settings-lyrics-providers-detail = Escolha em quais serviços buscar letras
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } selecionado
@@ -1113,7 +1111,9 @@ toast-open-failed = Não foi possível abrir { $name }
 toast-open-unsupported = { $name } não é um arquivo de áudio que o Sonora consegue tocar
 toast-open-all-failed = { $count } arquivos não puderam ser abertos
 toast-open-some-failed = Alguns arquivos não puderam ser abertos
-toast-keys-refused = O Spotify não está concedendo chaves de reprodução para esta conta
+toast-keys-error = Erro na chave
+toast-keys-refused = Spotify pode falhar
+toast-why = Por quê?
 toast-sign-in-to-play = { $name } só reproduz para um ouvinte conectado
 toast-restore-failed = { $name } não conseguiu reconectar, então o Sonora seguiu sem ele
 toast-track-unplayable = { $name } não pôde ser reproduzida

@@ -165,6 +165,8 @@ impl SettingsView {
 
         div()
             .id("open-equalizer")
+            .role(gpui::accesskit::Role::Button)
+            .aria_label(t!("settings-equalizer"))
             .flex()
             .items_center()
             .gap_3()
@@ -192,12 +194,14 @@ impl SettingsView {
                 div()
                     .flex_none()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(Switch::new("equalizer", on).on_click(cx.listener(
-                        move |this, _, _, cx| {
-                            this.equalizer
-                                .update(cx, |equalizer, cx| equalizer.set_enabled(!on, cx));
-                        },
-                    ))),
+                    .child(
+                        Switch::new("equalizer", on)
+                            .name(t!("settings-equalizer"))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.equalizer
+                                    .update(cx, |equalizer, cx| equalizer.set_enabled(!on, cx));
+                            })),
+                    ),
             )
             .child(
                 svg()

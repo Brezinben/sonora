@@ -310,7 +310,6 @@ view-list = Listë
 view-cards = Rrjetë
 
 # toolbar
-tool-columns = Kolona
 tool-sort = Rendit
 tool-filters = Filtra
 
@@ -974,7 +973,6 @@ settings-romanized-lyrics = Tekste të romanizuara
 settings-romanized-lyrics-detail = Shfaq shqiptimin e gjeneruar lokalisht për sistemet e zgjedhura të shkrimit
 settings-romanization-writing-systems = Sistemet e shkrimit
 settings-lyrics-priority = Përparësia e ofruesve
-settings-lyrics-priority-detail = Midis teksteve të të njëjtit lloj, Sonora shfaq burimin që është më lart
 settings-lyrics-providers-detail = Zgjidh cilët shërbime të kërkohen për tekste
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } i përzgjedhur
@@ -1113,7 +1111,9 @@ toast-open-failed = { $name } nuk mund të hapej
 toast-open-unsupported = { $name } nuk është skedar audio që Sonora mund ta luajë
 toast-open-all-failed = { $count } skedarë nuk mund të hapeshin
 toast-open-some-failed = Disa skedarë nuk mund të hapeshin
-toast-keys-refused = Spotify nuk po i jep kësaj llogarie çelësat e luajtjes
+toast-keys-error = Gabim në çelësin e luajtjes
+toast-keys-refused = Spotify mund të mos punojë
+toast-why = Pse?
 toast-sign-in-to-play = { $name } transmeton vetëm për një dëgjues të lidhur
 toast-restore-failed = { $name } nuk mundi të rihynte, kështu që Sonora vazhdoi pa të
 toast-track-unplayable = { $name } nuk mund të luhej
