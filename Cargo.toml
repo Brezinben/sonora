@@ -145,7 +145,7 @@ raw-window-handle = "0.6"
 resvg = { version = "0.46", default-features = false }
 ring = "0.17"
 roxmltree = "0.21"
-rodio = { version = "0.22", default-features = false, features = ["playback"] }
+rodio = { version = "0.22", default-features = false, features = ["playback", "experimental"] }
 rtrb = "0.3"
 rusqlite = { version = "0.32" }
 # Pinned exactly: a young crate, and the decoder every HE-AAC stream goes through.
