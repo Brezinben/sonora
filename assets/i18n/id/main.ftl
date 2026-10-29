@@ -973,7 +973,6 @@ settings-romanized-lyrics = Lirik romanisasi
 settings-romanized-lyrics-detail = Tampilkan panduan pelafalan latin untuk sistem aksara tertentu
 settings-romanization-writing-systems = Sistem aksara
 settings-lyrics-priority = Prioritas sumber
-settings-lyrics-priority-detail = Di antara lirik sejenis, Sonora menampilkan sumber yang lebih atas
 settings-lyrics-providers-detail = Pilih layanan yang dicari untuk lirik
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } dipilih

@@ -949,7 +949,6 @@ settings-romanized-lyrics = Latin harfli şarkı sözleri
 settings-romanized-lyrics-detail = Seçilen yazı sistemleri için yerel olarak üretilen okunuşu göster
 settings-romanization-writing-systems = Yazı sistemleri
 settings-lyrics-priority = Servis önceliği
-settings-lyrics-priority-detail = Aynı türdeki şarkı sözleri arasında Sonora daha üstteki kaynağı gösterir
 settings-lyrics-providers-detail = Şarkı sözü aranacak servisleri seç
 settings-lyrics-providers-selected = { $count ->
    *[other] { $count } seçili

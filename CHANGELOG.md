@@ -14,6 +14,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Quick picks on Home no longer shows your account name above its title.
+- The lyrics source you rank higher now wins whenever it has synced lyrics, even when a source
+  below it has them word by word.
 
 ### Fixed
 
