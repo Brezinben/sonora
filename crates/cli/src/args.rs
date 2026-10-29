@@ -116,7 +116,8 @@ enum Sub {
     },
     /// Search the current provider. Each hit ends in the link `add` and `play-next` take.
     Search {
-        /// What to look for; the words need no quotes.
+        /// Words to look for; quote them when they hold characters the shell reads, such as
+        /// `'`, `?` or `&`.
         #[arg(required = true)]
         query: Vec<String>,
         /// Only hits of this kind.
@@ -140,7 +141,8 @@ enum Sub {
 /// A search to take the best hit of, in place of files or links.
 #[derive(clap::Args)]
 struct Searched {
-    /// Take the best hit of a search instead; the words follow and need no quotes.
+    /// Take the best hit of a search instead. The words follow; quote them when they hold
+    /// characters the shell reads, such as `'`, `?` or `&`.
     #[arg(
         short = 's',
         long = "search",

@@ -54,6 +54,13 @@ given. `play` puts them right after the current track and skips to them, as `pla
 
 ### Searching
 
+The words of a query need no quotes, `sonora search one more time` works as it is. Quote them
+when they hold characters the shell reads first, such as `'`, `?`, `&` or `!`:
+
+```sh
+sonora play -s "What's Up?"
+```
+
 `search` ranks the provider's answers against your library the way the search page does. Each row
 ends in the link `add` and `play-next` take:
 
@@ -196,3 +203,11 @@ The crate knows nothing of GPUI or of the app's state, so it can be built and re
 4. If it answers with something new, add a `wire::Value` and print it in `run::show` and
    `run::json`.
 5. List it in the table above.
+
+## Backlog
+
+- **Messages through Fluent.** Errors, table headers, statuses and `--help` are in English in
+  the code for now. They move to `assets/i18n/en-US/main.ftl`, in the language the running
+  Sonora uses or, for `--help` with none running, the system's.
+- **`sonora watch`.** One line of JSON on every change of what plays, for status bars to follow
+  without asking every second, and for a stream overlay to read from a file.
