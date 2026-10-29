@@ -1008,7 +1008,6 @@ settings-romanized-lyrics = Latynizacja tekstu
 settings-romanized-lyrics-detail = Pokazuj wymowę generowaną lokalnie dla wybranych systemów pisma
 settings-romanization-writing-systems = Systemy pisma
 settings-lyrics-priority = Priorytet serwisów
-settings-lyrics-priority-detail = Spośród tekstów tego samego rodzaju Sonora pokazuje ten ze źródła wyżej na liście
 settings-lyrics-providers-detail = Wybierz serwisy do wyszukiwania tekstów piosenek
 settings-lyrics-providers-selected = { $count ->
     [one] Wybrano { $count } źródło

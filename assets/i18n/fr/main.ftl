@@ -977,7 +977,6 @@ settings-romanized-lyrics = Paroles romanisées
 settings-romanized-lyrics-detail = Afficher une prononciation générée localement pour les systèmes d'écriture choisis
 settings-romanization-writing-systems = Systèmes d'écriture
 settings-lyrics-priority = Priorité des services
-settings-lyrics-priority-detail = Parmi les paroles de même type, Sonora affiche la source placée le plus haut
 settings-lyrics-providers-detail = Choisissez les services dans lesquels chercher les paroles
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } sélectionné

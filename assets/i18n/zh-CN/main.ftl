@@ -973,7 +973,6 @@ settings-romanized-lyrics = 罗马化歌词
 settings-romanized-lyrics-detail = 为选定的书写系统显示本地生成的发音
 settings-romanization-writing-systems = 书写系统
 settings-lyrics-priority = 来源优先级
-settings-lyrics-priority-detail = 对于同类歌词，Sonora 优先显示排在前面的来源
 settings-lyrics-providers-detail = 选择要搜索歌词的服务
 settings-lyrics-providers-selected = { $count ->
     [one] 已选择 { $count } 个

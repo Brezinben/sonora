@@ -980,7 +980,7 @@ settings-romanized-lyrics = Romanized lyrics
 settings-romanized-lyrics-detail = Show locally generated pronunciation for selected writing systems
 settings-romanization-writing-systems = Writing systems
 settings-lyrics-priority = Provider priority
-settings-lyrics-priority-detail = Among lyrics of the same kind, Sonora shows the source higher up
+settings-lyrics-priority-detail = Sonora shows synced lyrics from the highest source that has them
 settings-lyrics-providers-detail = Choose which services to search for lyrics
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } selected

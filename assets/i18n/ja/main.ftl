@@ -921,7 +921,6 @@ settings-romanized-lyrics = ローマ字歌詞
 settings-romanized-lyrics-detail = 選択した文字体系の発音表記を、このデバイス上で生成して表示する
 settings-romanization-writing-systems = 文字体系
 settings-lyrics-priority = 提供元の優先順位
-settings-lyrics-priority-detail = 同じ種類の歌詞の中では、上位の提供元を表示する
 settings-lyrics-providers-detail = 歌詞を検索するサービスを選ぶ
 settings-lyrics-providers-selected = { $count ->
    *[other] { $count }件を選択
