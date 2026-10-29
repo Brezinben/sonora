@@ -170,6 +170,7 @@ impl SettingsView {
                 div()
                     .id("settings-about-name")
                     .role(gpui::accesskit::Role::Heading)
+                    .aria_level(2)
                     .aria_label(t!("settings-about-name"))
                     .text_size(theme.text(Text::Title))
                     .font_weight(FontWeight::SEMIBOLD)
@@ -200,6 +201,7 @@ impl SettingsView {
                 group_heading(t!("settings-team"), Some("icons/user-round.svg"), cx)
                     .id("settings-team")
                     .role(gpui::accesskit::Role::Heading)
+                    .aria_level(2)
                     .aria_label(t!("settings-team")),
             )
             .children(MEMBERS.into_iter().enumerate().map(|(index, member)| {

@@ -257,6 +257,14 @@ impl SongView {
                                 .into_any_element(),
                         };
                         let name = SharedString::from(credit.name.clone());
+                        let role = SharedString::from(credit.role.clone());
+                        // A linked row speaks as one link, so its lines stay anonymous, while an
+                        // unlinked row has no node of its own and exposes each line instead.
+                        let linked = credit.id.is_some();
+                        let line = |id: (&'static str, usize), text: SharedString| match linked {
+                            true => div().id(id).child(text),
+                            false => ui::spoken(id, text),
+                        };
                         let row = div()
                             .flex()
                             .items_center()
@@ -274,28 +282,27 @@ impl SongView {
                                     .min_w_0()
                                     .gap_0p5()
                                     .child(
-                                        div()
+                                        line(("song-credit-name", index), name.clone())
                                             .min_w_0()
                                             .truncate()
                                             .tails()
-                                            .font_weight(FontWeight::MEDIUM)
-                                            .child(credit.name),
+                                            .font_weight(FontWeight::MEDIUM),
                                     )
                                     .child(
-                                        div()
+                                        line(("song-credit-role", index), role.clone())
                                             .min_w_0()
                                             .text_size(theme.text(Text::Small))
-                                            .text_color(theme.muted_foreground)
-                                            .child(credit.role),
+                                            .text_color(theme.muted_foreground),
                                     ),
                             );
 
                         match credit.id {
                             Some(id) => row
                                 .id(("song-credit", index))
-                                // The link role comes from `Link`; the name is
-                                // the credit's, since its text stays anonymous.
+                                // The link role comes from `Link`. The name is the credit's
+                                // and its role follows as the description.
                                 .aria_label(name)
+                                .aria_description(role)
                                 .cursor_pointer()
                                 .hover(|style| style.bg(theme.secondary_hover))
                                 .rounded(theme.radius)
@@ -342,11 +349,10 @@ impl SongView {
                                     .px(theme.metrics.pad)
                                     .py(theme.metrics.pad / 2.)
                                     .child(
-                                        div()
+                                        ui::spoken("song-genres", t!("song-genres"))
                                             .flex_1()
                                             .min_w_0()
-                                            .text_color(theme.muted_foreground)
-                                            .child(t!("song-genres")),
+                                            .text_color(theme.muted_foreground),
                                     )
                                     .child(
                                         div()
@@ -356,20 +362,21 @@ impl SongView {
                                             .flex_wrap()
                                             .justify_end()
                                             .gap_2()
-                                            .children(tags.into_iter().map(|tag| {
-                                                div()
-                                                    .max_w_full()
-                                                    .min_w_0()
-                                                    .truncate()
-                                                    .px_3()
-                                                    .py_1()
-                                                    .rounded_full()
-                                                    .bg(theme.secondary)
-                                                    .border_1()
-                                                    .border_color(theme.border)
-                                                    .text_size(theme.text(Text::Small))
-                                                    .child(tag)
-                                            })),
+                                            .children(tags.into_iter().enumerate().map(
+                                                |(index, tag)| {
+                                                    ui::spoken(("song-genre", index), tag)
+                                                        .max_w_full()
+                                                        .min_w_0()
+                                                        .truncate()
+                                                        .px_3()
+                                                        .py_1()
+                                                        .rounded_full()
+                                                        .bg(theme.secondary)
+                                                        .border_1()
+                                                        .border_color(theme.border)
+                                                        .text_size(theme.text(Text::Small))
+                                                },
+                                            )),
                                     ),
                             )
                         },
@@ -594,12 +601,11 @@ impl Render for SongView {
                                     .cloned(),
                                 |this, copyright| {
                                     this.child(
-                                        div()
+                                        ui::spoken("song-copyright", copyright_notice(&copyright))
                                             .pt_5()
                                             .min_w_0()
                                             .text_size(theme.text(Text::Tiny))
-                                            .text_color(theme.muted_foreground)
-                                            .child(copyright_notice(&copyright)),
+                                            .text_color(theme.muted_foreground),
                                     )
                                 },
                             )

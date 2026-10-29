@@ -19,8 +19,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Screen readers now name every switch and dropdown in Settings and the equalizer, and read the
-  setting labels, the version and the team on the About page.
+- Screen readers now read setting labels and their values, the streaming services list, track rows,
+  lyrics, the queue, page headings and empty pages, and say which option is chosen, expanded or
+  playing. Every switch, dropdown, slider and window button has a name.
 - The translucent player bar no longer looks much darker than the rest of a see-through window.
 - Covers saved for the system media controls no longer fill Sonora's cache folder without limit,
   and playlist mosaics no longer leave old copies behind.

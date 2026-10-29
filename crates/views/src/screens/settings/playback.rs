@@ -9,7 +9,7 @@ use music::{Codec, Encoding, Offer, Quality, Transcode};
 use state::{CdmState, Sleep};
 use ui::{ActiveTheme as _, Button, MenuItem, OptionCard, Picker, Scrubber, Switch, Text};
 
-use super::rows::{grid, segmented};
+use super::rows::{Announced as _, grid, segmented};
 use super::{Group, SettingsView, Slot};
 use crate::shared::confirm::{Confirm, Kind};
 
@@ -129,12 +129,14 @@ impl SettingsView {
             .items_center()
             .gap_3()
             .child(
-                div()
-                    .flex_none()
-                    .w(theme.metrics.cover * SLEEP_LABEL)
-                    .whitespace_nowrap()
-                    .text_right()
-                    .child(t!("settings-cache-size-value", count = current)),
+                ui::spoken(
+                    "settings-cache-size-value",
+                    t!("settings-cache-size-value", count = current),
+                )
+                .flex_none()
+                .w(theme.metrics.cover * SLEEP_LABEL)
+                .whitespace_nowrap()
+                .text_right(),
             )
             .child(
                 div()
@@ -182,10 +184,9 @@ impl SettingsView {
 
         self.row(
             i18n::lookup(quality_key(current), None),
-            div()
+            ui::spoken("settings-stream-quality-encoding", encoding)
                 .text_color(theme.muted_foreground)
                 .text_size(theme.text(Text::Label))
-                .child(encoding)
                 .into_any_element(),
         )
     }
@@ -204,6 +205,13 @@ impl SettingsView {
             .children(ladder.into_iter().enumerate().map(|(rank, offer)| {
                 let quality = offer.quality;
                 OptionCard::new(quality.id())
+                    .choice(
+                        i18n::lookup(quality_key(quality), None),
+                        quality == current,
+                        rank,
+                        steps,
+                    )
+                    .aria_description(encoding_label(&offer))
                     .thumb(signal(rank, steps, cx))
                     .label(i18n::lookup(quality_key(quality), None))
                     .detail(encoding_label(&offer))
@@ -318,7 +326,7 @@ impl SettingsView {
             .items_center()
             .gap_3()
             .child(
-                div()
+                ui::spoken("settings-sleep-value", sleep_label(current))
                     .flex_none()
                     .w(theme.metrics.cover * SLEEP_LABEL)
                     .whitespace_nowrap()
@@ -326,8 +334,7 @@ impl SettingsView {
                     .text_color(match current {
                         Some(_) => theme.foreground,
                         None => theme.muted_foreground,
-                    })
-                    .child(sleep_label(current)),
+                    }),
             )
             .child(
                 div()
@@ -384,7 +391,10 @@ impl SettingsView {
             .gap_2()
             .text_color(theme.muted_foreground)
             .text_size(theme.text(Text::Label))
-            .child(i18n::lookup(note, None))
+            .child(ui::spoken(
+                "settings-widevine-note",
+                i18n::lookup(note, None),
+            ))
             .when(offerable, |row| {
                 row.child(
                     Button::new("fetch-widevine")
@@ -420,6 +430,9 @@ impl SettingsView {
             .when(offerable, |row| {
                 row.child(
                     div()
+                        .id("settings-widevine-detail")
+                        .role(Role::Paragraph)
+                        .aria_label(detail.clone())
                         .pb_5()
                         .text_color(theme.muted_foreground)
                         .text_size(theme.text(Text::Label))

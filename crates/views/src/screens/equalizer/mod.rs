@@ -485,6 +485,7 @@ impl EqualizerView {
         ];
 
         TabBar::new("equalizer-mode")
+            .name(t!("equalizer-mode"))
             .flex_none()
             .items(modes)
             .into_any_element()
@@ -721,13 +722,19 @@ impl EqualizerView {
                     .on_click(cx.listener(move |this, _, _, cx| this.set_preamp(choice, cx)))
             }),
         );
+        let level = t!("equalizer-decibels-value", db = figure(resolved, 1));
         let value = match auto {
             true => figure_cell(
-                t!("equalizer-decibels-value", db = figure(resolved, 1)),
+                "equalizer-preamp-value",
+                level.clone(),
+                level,
                 theme.metrics.cover * FIELD,
                 cx,
             ),
             false => div()
+                .id("equalizer-preamp-field")
+                .role(Role::Group)
+                .aria_label(t!("equalizer-preamp-level"))
                 .flex_none()
                 .w(theme.metrics.cover * FIELD)
                 .child(self.preamp.clone())
@@ -864,6 +871,7 @@ fn heading(
     div()
         .id(SharedString::from(key))
         .role(Role::Heading)
+        .aria_level(2)
         .aria_label(label.clone())
         .flex()
         .items_center()

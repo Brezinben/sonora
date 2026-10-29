@@ -225,6 +225,7 @@ fn card_element(card: Card, cx: &App) -> AnyElement {
         .id(SharedString::from(format!("{id}-card")))
         .role(Role::Alert)
         .aria_label(title.clone())
+        .when_some(detail.clone(), |this, detail| this.aria_description(detail))
         .occlude()
         .flex()
         .flex_col()
