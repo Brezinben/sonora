@@ -55,7 +55,8 @@ pub use genre::{GenreDetails, Genres};
 pub use history::{History, HistoryState};
 pub use home::Home;
 pub use library::{
-    Addition, Leaving, Library, LibraryEvent, LibraryPart, LibraryState, Problem, Ready, Shelf,
+    Addition, CoverEdit, Leaving, Library, LibraryEvent, LibraryPart, LibraryState, Problem, Ready,
+    Shelf, cover_problem,
 };
 pub use links::{Links, Opened};
 pub use logging::log_file;

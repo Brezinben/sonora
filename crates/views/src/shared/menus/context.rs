@@ -905,12 +905,12 @@ pub(crate) fn playlist_menu(playlist: Playlist, playback: Entity<Playback>, cx: 
         true => visibility
             .into_iter()
             .chain([
-                MenuItem::new("rename-playlist", t!("menu-rename-playlist"))
+                MenuItem::new("edit-playlist", t!("menu-edit-playlist"))
                     .icon("icons/pencil.svg")
                     .on_click({
                         let playlist = playlist.clone();
                         move |_, window, cx| {
-                            PlaylistEditor::open(Edit::Rename(playlist.clone()), window, cx);
+                            PlaylistEditor::open(Edit::Details(playlist.clone()), window, cx);
                         }
                     }),
                 MenuItem::new("delete-playlist", t!("menu-delete-playlist"))
