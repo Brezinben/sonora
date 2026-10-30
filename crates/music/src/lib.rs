@@ -52,13 +52,13 @@ pub use audio::Meter;
 pub use equalizer::Equalizer;
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
-    Contributor, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed, Lyrics, LyricsHit,
-    LyricsLane, LyricsLine, LyricsQuery, LyricsWord, PinOutcome, PinTarget, PinTargetKind,
-    Playlist, PlaylistDetail, ReleaseType, RomanizedText, SavedArtist, Track, TrackKey, TrackTags,
-    UserDetail, UserProfile, Voice, WritingSystem,
+    Contributor, CoverSize, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed,
+    ImportedPlaylist, Lyrics, LyricsHit, LyricsLane, LyricsLine, LyricsQuery, LyricsWord,
+    PinOutcome, PinTarget, PinTargetKind, Playlist, PlaylistDetail, ReleaseType, RomanizedText,
+    SavedArtist, Track, TrackKey, TrackTags, UserDetail, UserProfile, Voice, WritingSystem,
 };
 pub use output::{Server as SoundServer, missing_bridge};
-pub use spectrum::{Analyzer, Level, Spectrum, Watch};
+pub use spectrum::{Analyzer, Level, Listening, Spectrum, Watch};
 
 pub const LOCAL_TRACK_PREFIX: &str = "local:";
 pub const LOCAL_ALBUM_PREFIX: &str = "local-album:";
@@ -115,6 +115,12 @@ pub trait MusicApi: Send + Sync {
     /// The provider's device network, for a provider that has one. Spotify Connect is the
     /// only one so far.
     fn connect(&self) -> Option<Arc<connect::Connect>> {
+        None
+    }
+
+    /// A cover url this provider handed out, at `size`. It is worked out from the url alone,
+    /// so `None` means the provider cannot tell and the caller loads the album instead.
+    fn cover_at(&self, _cover: &str, _size: CoverSize) -> Option<String> {
         None
     }
 
@@ -250,6 +256,18 @@ pub trait MusicApi: Send + Sync {
         Ok(())
     }
     async fn remove_track_from_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()>;
+
+    /// Reads the M3U or M3U8 playlist at `path` into a new playlist named after the file, for a
+    /// provider whose tracks are files. Entries naming a file outside the library are left out
+    /// and counted.
+    async fn import_playlist(&self, _path: &Path) -> Result<ImportedPlaylist> {
+        anyhow::bail!("this provider cannot import playlist files")
+    }
+
+    /// Writes a playlist to `path` as M3U8, for a provider whose tracks are files.
+    async fn export_playlist(&self, _playlist_id: &str, _path: &Path) -> Result<()> {
+        anyhow::bail!("this provider cannot export playlist files")
+    }
     async fn saved_albums(&self) -> Result<Vec<Album>>;
 
     /// Every album the provider has. Only a `Shape::Catalog` provider answers.

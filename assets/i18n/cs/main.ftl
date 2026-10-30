@@ -104,6 +104,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Přidat { $count } skladeb do playlistu
 }
 menu-new-playlist = Nový playlist
+menu-import-playlist = Importovat playlist…
 menu-edit-tags = Upravit tagy
 menu-no-playlists = Žádné playlisty
 menu-search-playlists = Hledat playlist
@@ -180,6 +181,7 @@ menu-select-all = Vybrat vše
 menu-remove-from-queue = Odebrat z fronty
 menu-rename-playlist = Přejmenovat playlist
 menu-delete-playlist = Smazat playlist
+menu-export-playlist = Exportovat playlist…
 menu-add-playlist-to-library = Přidat do knihovny
 menu-remove-playlist-from-library = Odebrat z knihovny
 menu-library-add = Přidat do knihovny
@@ -1006,7 +1008,6 @@ settings-romanized-lyrics = Romanizované texty
 settings-romanized-lyrics-detail = Zobrazuje místně vytvořenou výslovnost pro vybrané písmové systémy
 settings-romanization-writing-systems = Písmové systémy
 settings-lyrics-priority = Priorita poskytovatelů
-settings-lyrics-priority-detail = Mezi texty stejného druhu Sonora zobrazí ten ze zdroje výš v seznamu
 settings-lyrics-providers-detail = Vyber služby, ve kterých se mají hledat texty písní
 settings-lyrics-providers-selected = { $count ->
     [one] Vybrán { $count } poskytovatel
@@ -1119,6 +1120,14 @@ toast-track-removed-unnamed = Odebráno z playlistu
 toast-playlist-failed = Tuto změnu se nepodařilo uložit
 toast-playlist-busy = Jiná změna ještě probíhá
 toast-playlist-signed-out = Pro změnu playlistů se přihlas
+toast-playlist-imported = Importováno: { $name }
+toast-playlist-imported-partly = Importováno: { $name }, bez { $count ->
+        [one] jedné skladby, která není
+       *[other] { $count } skladeb, které nejsou
+    } v tvé knihovně
+toast-playlist-import-empty = Žádná skladba z { $name } není v tvé knihovně
+toast-playlist-exported = Playlist exportován
+toast-file-dialog-failed = Dialog pro výběr souboru se nepodařilo otevřít
 toast-queued-track = Do fronty přidáno: { $name }
 toast-next-track = { $name } se přehraje jako další
 toast-last-track = { $name } se přehraje jako poslední

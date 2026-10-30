@@ -44,12 +44,11 @@ impl SettingsView {
 
         self.row(
             title,
-            div()
+            ui::spoken("settings-output-failure", detail)
                 .max_w(theme.metrics.cover * 2.)
                 .truncate()
                 .text_size(theme.text(Text::Label))
                 .text_color(theme.muted_foreground)
-                .child(detail)
                 .into_any_element(),
         )
     }
@@ -88,9 +87,11 @@ impl SettingsView {
         let rate = current
             .map(|rate| t!("settings-sample-rate-value", khz = f64::from(rate) / 1_000.))
             .unwrap_or_else(|| t!("settings-output-idle"));
+        let rate = ui::spoken("sample-rate-value", rate);
         let stepper = current.filter(|_| rates.len() > 1).map(|current| {
             output_stepper(
                 "sample-rate",
+                ("settings-sample-rate-lower", "settings-sample-rate-higher"),
                 current,
                 &rates,
                 locked,
@@ -137,8 +138,17 @@ impl SettingsView {
         let buffer = current
             .map(|frames| SharedString::from(frames.to_string()))
             .unwrap_or_else(|| t!("settings-output-idle"));
+        let buffer = ui::spoken("buffer-value", buffer);
         let stepper = current.filter(|_| buffers.len() > 1).map(|current| {
-            output_stepper("buffer", current, &buffers, locked, Outputs::set_buffer, cx)
+            output_stepper(
+                "buffer",
+                ("settings-buffer-smaller", "settings-buffer-larger"),
+                current,
+                &buffers,
+                locked,
+                Outputs::set_buffer,
+                cx,
+            )
         });
 
         self.row(
@@ -161,7 +171,8 @@ impl SettingsView {
         let theme = *cx.theme();
         let on = self.equalizer.read(cx).enabled();
         let sound = sound_picker(SOUND, &self.popovers, &self.equalizer, &self.settings, cx)
-            .width(Picker::REGULAR);
+            .width(Picker::REGULAR)
+            .name(t!("equalizer-sound"));
 
         div()
             .id("open-equalizer")
@@ -216,9 +227,10 @@ impl SettingsView {
 
 /// The minus and plus buttons beside an output setting's value, which `apply` the next lower or
 /// higher of `options` than `current`. A button with nothing further that way is disabled, and
-/// both are while `locked`.
+/// both are while `locked`. `names` holds the Fluent keys screen readers name the two buttons by.
 pub(super) fn output_stepper(
     id: &'static str,
+    names: (&'static str, &'static str),
     current: u32,
     options: &[u32],
     locked: bool,
@@ -231,20 +243,22 @@ pub(super) fn output_stepper(
         .find(|&&option| option < current)
         .copied();
     let higher = options.iter().find(|&&option| option > current).copied();
-    let step = |suffix: &'static str, label: &'static str, next: Option<u32>| {
-        Button::new(SharedString::from(format!("{id}-{suffix}")))
-            .label(label)
-            .small()
-            .outline()
-            .disabled(locked || next.is_none())
-            .on_click(cx.listener(move |this, _, _, cx| {
-                let Some(next) = next else { return };
-                this.outputs
-                    .update(cx, |outputs, cx| apply(outputs, next, cx));
-            }))
-    };
+    let step =
+        |suffix: &'static str, label: &'static str, name: &'static str, next: Option<u32>| {
+            Button::new(SharedString::from(format!("{id}-{suffix}")))
+                .label(label)
+                .name(i18n::lookup(name, None))
+                .small()
+                .outline()
+                .disabled(locked || next.is_none())
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let Some(next) = next else { return };
+                    this.outputs
+                        .update(cx, |outputs, cx| apply(outputs, next, cx));
+                }))
+        };
     (
-        step("lower", "\u{2212}", lower),
-        step("higher", "+", higher),
+        step("lower", "\u{2212}", names.0, lower),
+        step("higher", "+", names.1, higher),
     )
 }

@@ -104,6 +104,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Додати { $count } треків до плейлиста
 }
 menu-new-playlist = Новий плейлист
+menu-import-playlist = Імпортувати плейлист…
 menu-edit-tags = Змінити теги
 menu-no-playlists = Немає плейлистів
 menu-search-playlists = Пошук плейлиста
@@ -176,6 +177,7 @@ menu-select-all = Вибрати все
 menu-remove-from-queue = Вилучити з черги
 menu-rename-playlist = Перейменувати плейлист
 menu-delete-playlist = Видалити плейлист
+menu-export-playlist = Експортувати плейлист…
 menu-add-playlist-to-library = Додати до медіатеки
 menu-remove-playlist-from-library = Вилучити з медіатеки
 menu-library-add = Додати до медіатеки
@@ -1007,7 +1009,6 @@ settings-romanized-lyrics = Романізація тексту
 settings-romanized-lyrics-detail = Показувати локально зібрану вимову для вибраних систем письма
 settings-romanization-writing-systems = Системи письма
 settings-lyrics-priority = Пріоритет джерел
-settings-lyrics-priority-detail = Серед текстів одного типу Sonora показує те джерело, що вище в списку
 settings-lyrics-providers-detail = Виберіть сервіси для пошуку текстів пісень
 settings-lyrics-providers-selected = { $count ->
     [one] Вибрано { $count } джерело
@@ -1120,6 +1121,14 @@ toast-track-removed-unnamed = Вилучено з плейлиста
 toast-playlist-failed = Не вдалося зберегти зміну
 toast-playlist-busy = Інша зміна ще виконується
 toast-playlist-signed-out = Увійдіть, щоб змінювати плейлисти
+toast-playlist-imported = Плейлист { $name } імпортовано
+toast-playlist-imported-partly = Плейлист { $name } імпортовано без { $count ->
+        [one] { $count } трека, якого
+       *[other] { $count } треків, яких
+    } немає в медіатеці
+toast-playlist-import-empty = Жодного треку з { $name } немає в медіатеці
+toast-playlist-exported = Плейлист експортовано
+toast-file-dialog-failed = Не вдалося відкрити вікно вибору файлу
 toast-queued-track = { $name } додано до черги
 toast-next-track = { $name } прозвучить наступним
 toast-last-track = { $name } прозвучить наприкінці

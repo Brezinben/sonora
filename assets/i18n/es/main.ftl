@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Añadir { $count } pistas a una lista
 }
 menu-new-playlist = Nueva lista de reproducción
+menu-import-playlist = Importar lista…
 menu-edit-tags = Editar etiquetas
 menu-no-playlists = Sin listas de reproducción
 menu-search-playlists = Buscar una lista
@@ -166,6 +167,7 @@ menu-select-all = Seleccionar todo
 menu-remove-from-queue = Quitar de la cola
 menu-rename-playlist = Renombrar lista
 menu-delete-playlist = Eliminar lista
+menu-export-playlist = Exportar lista…
 menu-add-playlist-to-library = Añadir a la biblioteca
 menu-remove-playlist-from-library = Quitar de la biblioteca
 menu-library-add = Añadir a la biblioteca
@@ -973,7 +975,6 @@ settings-romanized-lyrics = Letra romanizada
 settings-romanized-lyrics-detail = Muestra la pronunciación generada localmente para los sistemas de escritura elegidos
 settings-romanization-writing-systems = Sistemas de escritura
 settings-lyrics-priority = Prioridad de proveedores
-settings-lyrics-priority-detail = Entre letras del mismo tipo, Sonora muestra la de la fuente situada más arriba
 settings-lyrics-providers-detail = Elige en qué servicios buscar letra
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } seleccionado
@@ -1085,6 +1086,14 @@ toast-track-removed-unnamed = Se quitó de la lista
 toast-playlist-failed = No se pudo guardar ese cambio
 toast-playlist-busy = Todavía hay otro cambio en curso
 toast-playlist-signed-out = Inicia sesión para cambiar las listas
+toast-playlist-imported = Se importó { $name }
+toast-playlist-imported-partly = Se importó { $name } sin { $count ->
+        [one] una canción que no está
+       *[other] { $count } canciones que no están
+    } en tu biblioteca
+toast-playlist-import-empty = Ninguna canción de { $name } está en tu biblioteca
+toast-playlist-exported = Lista exportada
+toast-file-dialog-failed = No se pudo abrir el diálogo de archivos
 toast-queued-track = { $name } se añadió a la cola
 toast-next-track = { $name } suena a continuación
 toast-last-track = { $name } suena al final

@@ -100,6 +100,7 @@ column-tracks = 曲数
 menu-add-to-playlist = プレイリストに追加
 menu-add-tracks-to-playlist = { $count }曲をプレイリストに追加
 menu-new-playlist = 新しいプレイリスト
+menu-import-playlist = プレイリストをインポート…
 menu-edit-tags = タグを編集
 menu-no-playlists = プレイリストがありません
 menu-search-playlists = プレイリストを検索
@@ -142,6 +143,7 @@ menu-select-all = すべて選択
 menu-remove-from-queue = 再生キューから削除
 menu-rename-playlist = プレイリストの名前を変更
 menu-delete-playlist = プレイリストを削除
+menu-export-playlist = プレイリストをエクスポート…
 menu-add-playlist-to-library = ライブラリに追加
 menu-remove-playlist-from-library = ライブラリから削除
 menu-library-add = ライブラリに追加
@@ -921,7 +923,6 @@ settings-romanized-lyrics = ローマ字歌詞
 settings-romanized-lyrics-detail = 選択した文字体系の発音表記を、このデバイス上で生成して表示する
 settings-romanization-writing-systems = 文字体系
 settings-lyrics-priority = 提供元の優先順位
-settings-lyrics-priority-detail = 同じ種類の歌詞の中では、上位の提供元を表示する
 settings-lyrics-providers-detail = 歌詞を検索するサービスを選ぶ
 settings-lyrics-providers-selected = { $count ->
    *[other] { $count }件を選択
@@ -1032,6 +1033,13 @@ toast-track-removed-unnamed = プレイリストから削除しました
 toast-playlist-failed = 変更を保存できませんでした
 toast-playlist-busy = 別の変更を処理中です
 toast-playlist-signed-out = プレイリストを変更するにはサインインしてください
+toast-playlist-imported = { $name } をインポートしました
+toast-playlist-imported-partly = { $name } をインポートしました（ライブラリにない{ $count ->
+       *[other] { $count }曲
+    }を除く）
+toast-playlist-import-empty = { $name } の曲はどれもライブラリにありません
+toast-playlist-exported = プレイリストをエクスポートしました
+toast-file-dialog-failed = ファイルダイアログを開けませんでした
 toast-queued-track = { $name } を再生キューに追加しました
 toast-next-track = { $name } を次に再生します
 toast-last-track = { $name } を最後に再生します

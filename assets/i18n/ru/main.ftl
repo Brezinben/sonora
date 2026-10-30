@@ -104,6 +104,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Добавить { $count } треков в плейлист
 }
 menu-new-playlist = Новый плейлист
+menu-import-playlist = Импортировать плейлист…
 menu-edit-tags = Изменить теги
 menu-no-playlists = Нет плейлистов
 menu-search-playlists = Поиск плейлиста
@@ -176,6 +177,7 @@ menu-select-all = Выделить всё
 menu-remove-from-queue = Убрать из очереди
 menu-rename-playlist = Переименовать плейлист
 menu-delete-playlist = Удалить плейлист
+menu-export-playlist = Экспортировать плейлист…
 menu-add-playlist-to-library = Добавить в медиатеку
 menu-remove-playlist-from-library = Удалить из медиатеки
 menu-library-add = Добавить в медиатеку
@@ -1008,7 +1010,6 @@ settings-romanized-lyrics = Романизация текста
 settings-romanized-lyrics-detail = Показывать локально собранное произношение для выбранных систем письма
 settings-romanization-writing-systems = Системы письма
 settings-lyrics-priority = Приоритет источников
-settings-lyrics-priority-detail = Из текстов одного вида Sonora показывает тот, чей источник стоит выше
 settings-lyrics-providers-detail = Выберите сервисы для поиска текстов песен
 settings-lyrics-providers-selected = { $count ->
     [one] Выбран { $count } источник
@@ -1121,6 +1122,14 @@ toast-track-removed-unnamed = Удалено из плейлиста
 toast-playlist-failed = Не удалось сохранить изменение
 toast-playlist-busy = Другое изменение ещё выполняется
 toast-playlist-signed-out = Войдите, чтобы менять плейлисты
+toast-playlist-imported = Плейлист { $name } импортирован
+toast-playlist-imported-partly = Плейлист { $name } импортирован без { $count ->
+        [one] { $count } трека, которого
+       *[other] { $count } треков, которых
+    } нет в медиатеке
+toast-playlist-import-empty = Ни одного трека из { $name } нет в медиатеке
+toast-playlist-exported = Плейлист экспортирован
+toast-file-dialog-failed = Не удалось открыть окно выбора файла
 toast-queued-track = { $name } добавлен в очередь
 toast-next-track = { $name } прозвучит следующим
 toast-last-track = { $name } прозвучит в конце

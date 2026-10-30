@@ -690,6 +690,19 @@ impl TableSource for TrackSource {
         self.provider.pending(cx)
     }
 
+    /// The track's title and artists, which is what a screen reader announces for its row.
+    fn name(&self, row: usize, cx: &App) -> Option<SharedString> {
+        let track = self.provider.tracks(cx).get(row)?;
+        Some(match track.artists.is_empty() {
+            true => SharedString::from(track.name.clone()),
+            false => t!(
+                "track-row-name",
+                title = track.name.as_str(),
+                artists = track.artists.as_str()
+            ),
+        })
+    }
+
     fn pin(&self, row: usize, cx: &App) -> Option<Pin> {
         let tracks = self.provider.tracks(cx);
         let track = tracks.get(row)?;

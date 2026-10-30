@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gpui::{App, Context, Entity, SharedString, Task};
 use music::{
-    Album, Catalog, MediaKind, MusicApi, Page, Pages, Playlist, SavedArtist, Shape, Track,
+    Album, Catalog, ImportedPlaylist, MediaKind, MusicApi, Page, Pages, Playlist, SavedArtist,
+    Shape, Track,
 };
 use tokio::sync::Semaphore;
 
@@ -1874,6 +1875,65 @@ impl Library {
                 }))
             },
             Self::insert_playlist,
+            cx,
+        );
+    }
+
+    /// Reads the M3U playlist at `path` into a new local playlist named after the file. The
+    /// toast says how many of its songs were left out for not being in the library, and nothing
+    /// is made when none of them is.
+    pub fn import_playlist(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        self.mutate_playlist(
+            PlaylistMutation {
+                action: "import playlist",
+                done: None,
+                name: None,
+                target: None,
+                invalidated: Vec::new(),
+                shelf: Shelf::Local,
+            },
+            move |client| async move { client.import_playlist(&path).await },
+            |this, imported, cx| {
+                let ImportedPlaylist {
+                    playlist,
+                    name,
+                    skipped,
+                } = imported;
+                let Some(playlist) = playlist else {
+                    Toasts::about(Outcome::Failed, "toast-playlist-import-empty", name, cx);
+                    return;
+                };
+                let target = Some(Target::Playlist(SharedString::from(playlist.id.clone())));
+                let key = match skipped {
+                    0 => "toast-playlist-imported",
+                    _ => "toast-playlist-imported-partly",
+                };
+                this.insert_playlist(playlist, cx);
+                Toasts::post(
+                    Toast::new(Outcome::Done, key)
+                        .name(name)
+                        .count(skipped)
+                        .target(target),
+                    cx,
+                );
+            },
+            cx,
+        );
+    }
+
+    /// Writes a local playlist to `path` as M3U8.
+    pub fn export_playlist(&mut self, id: String, path: PathBuf, cx: &mut Context<Self>) {
+        self.mutate_playlist(
+            PlaylistMutation {
+                action: "export playlist",
+                done: Some("toast-playlist-exported"),
+                name: None,
+                target: None,
+                invalidated: Vec::new(),
+                shelf: Shelf::of(&id),
+            },
+            move |client| async move { client.export_playlist(&id, &path).await },
+            |_, (), _| {},
             cx,
         );
     }

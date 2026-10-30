@@ -13,9 +13,9 @@ use crate::spotify::{
     albums, artists, collection, collection2, pathfinder, playlists, profiles, radio, search, wire,
 };
 use crate::{
-    Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, Genre, GenreDetail,
-    GenreItem, GenreSection, HomeFeed, Playlist, PlaylistDetail, SUGGESTIONS, SavedArtist, Track,
-    UserDetail, UserProfile,
+    Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, CoverSize, Genre,
+    GenreDetail, GenreItem, GenreSection, HomeFeed, Playlist, PlaylistDetail, SUGGESTIONS,
+    SavedArtist, Track, UserDetail, UserProfile,
 };
 
 const MADE_FOR_YOU: &str = "0JQ5DAt0tbjZptfcdMSKl3";
@@ -44,6 +44,10 @@ impl MusicApi for LibrespotClient {
 
     fn connect(&self) -> Option<Arc<Connect>> {
         Some(self.connect.clone())
+    }
+
+    fn cover_at(&self, cover: &str, size: CoverSize) -> Option<String> {
+        wire::cover_at(cover, size)
     }
 
     fn share_url(&self, kind: MediaKind, id: &str) -> Option<String> {

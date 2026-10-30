@@ -2,6 +2,7 @@ mod client;
 mod id3;
 mod index;
 mod lyrics;
+mod m3u;
 mod playback;
 mod scan;
 mod store;

@@ -13,6 +13,8 @@ use gpui::{
     Window, actions, div, point, px, svg,
 };
 
+use i18n::t;
+
 use crate::artwork::{PREFETCH_REACH, Prefetch};
 use crate::filters::FilterChange;
 use crate::glass::{blurring, popover_surface};
@@ -116,6 +118,13 @@ pub trait TableSource: 'static {
     /// Text shown over the whole row the moment the pointer reaches it, following the pointer
     /// for as long as it stays.
     fn tip(&self, _row: usize, _cx: &App) -> Option<SharedString> {
+        None
+    }
+
+    /// What a screen reader calls the row, such as a track's title and artist. The cells draw
+    /// text no reader can reach, so a source that leaves this `None` has rows announced as
+    /// nothing but their place in the list.
+    fn name(&self, _row: usize, _cx: &App) -> Option<SharedString> {
         None
     }
 
@@ -967,6 +976,7 @@ impl<S: TableSource> TableState<S> {
 
     fn header(&self, head: Pixels, top: Corners<Pixels>, cx: &mut Context<Self>) -> Div {
         let theme = *cx.theme();
+        let table = cx.entity().downgrade();
         let last = self.delegate.columns.len().saturating_sub(1);
         let heads: Vec<_> = self
             .delegate
@@ -1051,6 +1061,12 @@ impl<S: TableSource> TableState<S> {
                         .id(("head", ix))
                         .role(gpui::accesskit::Role::ColumnHeader)
                         .aria_label(header.clone())
+                        .when_some(direction, |this, direction| {
+                            this.aria_description(match direction {
+                                Sort::Ascending => t!("table-sorted-ascending"),
+                                Sort::Descending => t!("table-sorted-descending"),
+                            })
+                        })
                         .relative()
                         .flex()
                         .flex_none()
@@ -1073,6 +1089,14 @@ impl<S: TableSource> TableState<S> {
                                         this.toggle_sort(ix, cx);
                                     }),
                                 )
+                                // the header sorts on mouse up rather than on click, so it
+                                // offers screen readers no click action unless it adds one
+                                .on_a11y_action(gpui::accesskit::Action::Click, {
+                                    let table = table.clone();
+                                    move |_, _, cx| {
+                                        table.update(cx, |this, cx| this.toggle_sort(ix, cx)).ok();
+                                    }
+                                })
                         })
                         .when(movable, |this| {
                             this.on_drag_move(cx.listener(
@@ -1135,6 +1159,9 @@ impl<S: TableSource> TableState<S> {
         let last = (first + self.viewport.rows(row_height)).min(count);
         let bottom = self.corners.bottom_left.max(self.corners.bottom_right);
         let marked = &self.delegate.marked;
+        // Focus stays on the table while the arrow keys walk its rows, so the row they reached
+        // claims the focus a screen reader reports.
+        let caret = self.delegate.selected;
 
         let mut rows: Vec<AnyElement> = (first..last)
             .map(|display| {
@@ -1158,8 +1185,12 @@ impl<S: TableSource> TableState<S> {
                     .collect();
 
                 div()
-                    .id(("row", display))
+                    .id(("row", row))
                     .role(gpui::accesskit::Role::Row)
+                    .when_some(self.delegate.source.name(row, cx), |this, name| {
+                        this.aria_label(name)
+                    })
+                    .when(caret == Some(row), |this| this.aria_active_descendant())
                     .aria_selected(selected)
                     .aria_row_index(display)
                     .aria_position_in_set(display + 1)
@@ -1374,6 +1405,11 @@ impl<S: TableSource> Render for TableState<S> {
         });
 
         div()
+            // The table has to be a node for the row the arrow keys reached to claim focus.
+            .id("table")
+            .role(gpui::accesskit::Role::Table)
+            .aria_row_count(self.delegate.row_count())
+            .aria_column_count(self.delegate.columns.len())
             .key_context(TABLE_CONTEXT)
             .track_focus(&self.focus)
             .on_action(cx.listener(Self::select_next))

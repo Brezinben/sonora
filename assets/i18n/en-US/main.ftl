@@ -16,6 +16,13 @@ common-previous = Previous
 common-next = Next
 common-dismiss = Dismiss
 common-clear = Clear
+option-variants = Variants of { $name }
+table-sorted-ascending = Sorted ascending
+table-sorted-descending = Sorted descending
+range-from = From
+range-to = To
+rail-back = Scroll back
+rail-forward = Scroll forward
 number-group = { "," }
 
 # navigation
@@ -74,6 +81,8 @@ app-window = Window
 app-close-window = Close Window
 app-minimize = Minimize
 app-zoom = Zoom
+window-maximize = Maximize
+window-restore = Restore
 
 # tray menu
 tray-show = Show Sonora
@@ -103,6 +112,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Add { $count } tracks to playlist
 }
 menu-new-playlist = New playlist
+menu-import-playlist = Import playlist…
 menu-edit-tags = Edit tags
 menu-no-playlists = No playlists
 menu-search-playlists = Search a playlist
@@ -166,6 +176,7 @@ menu-select-all = Select all
 menu-remove-from-queue = Remove from queue
 menu-rename-playlist = Rename playlist
 menu-delete-playlist = Delete playlist
+menu-export-playlist = Export playlist…
 menu-add-playlist-to-library = Add to Library
 menu-remove-playlist-from-library = Remove from Library
 menu-library-add = Add to Library
@@ -276,6 +287,11 @@ devices-jam-more = +{ $count }
 devices-jam-host = Host
 devices-jam-you = You
 devices-jam-remove = Remove
+devices-jam-people = { $count ->
+    [one] { $count } person in this Jam
+   *[other] { $count } people in this Jam
+    }
+devices-jam-remove-member = Remove { $name }
 devices-jam-invite-title = Join { $host }'s Jam?
 devices-jam-invite-title-anonymous = Join this Jam?
 devices-jam-invite-detail = { $count ->
@@ -286,6 +302,7 @@ devices-jam-invite-join = Join
 devices-elsewhere-banner = Playing on { $device }
 devices-elsewhere-here = Play here
 fullscreen-artwork = Artwork
+fullscreen-panels = Now playing views
 
 # filters
 filter-history = Filter listening history
@@ -362,6 +379,7 @@ login-account-title = Choose an account
 login-account-detail = This session is signed in to more than one Google account. Pick the one Sonora should use.
 login-choose-title = Sign in to { $provider }
 login-choose-detail = Choose how to sign in to { $provider }.
+login-providers = Music services
 
 # album and playlist pages
 detail-playlist = Playlist
@@ -476,6 +494,7 @@ artist-about = About the artist
 artist-about-fallback = Explore the artist's popular songs and releases.
 artist-about-open = Go to artist
 song-copyright = © { $notice }
+track-row-name = { $title } by { $artists }
 
 # song languages
 language-ar = Arabic
@@ -644,6 +663,8 @@ settings-blur-window-detail = Draw the window over a blurred desktop. Needs an o
 settings-font = Font size
 settings-font-detail = Base text size, everything else scales with it
 settings-font-value = { $size } px
+settings-font-smaller = Smaller text
+settings-font-larger = Larger text
 settings-startup = Start on
 settings-startup-detail = The screen Sonora opens on launch
 settings-startup-no-guest = Unavailable in Guest mode
@@ -768,9 +789,13 @@ settings-output-device-direct = Direct to hardware
 settings-sample-rate = Sample rate
 settings-sample-rate-detail = What the device runs at. Sonora converts every track to it
 settings-sample-rate-value = { $khz } kHz
+settings-sample-rate-lower = Lower sample rate
+settings-sample-rate-higher = Higher sample rate
 settings-sample-rate-change = Change
 settings-buffer = Buffer size
 settings-buffer-detail = How much audio Sonora hands the device at a time
+settings-buffer-smaller = Smaller buffer
+settings-buffer-larger = Larger buffer
 settings-output-idle = Not playing
 settings-output-device-loading = Loading devices…
 settings-output-failed = Device not supported
@@ -783,6 +808,7 @@ settings-signal-khz = { $khz } kHz
 settings-signal-kbps = { $kbps } kbps
 settings-signal-bits = { $depth }-bit
 settings-signal-source-detail = { $rate } · { $quality }
+settings-signal-path = Signal path
 settings-sleep = Sleep timer
 settings-sleep-detail = Lets the music stop on its own after a set time, so it can play you to sleep
 settings-stay-awake = Stay awake while playing
@@ -918,6 +944,19 @@ equalizer-rule-playing = Playing now
 equalizer-rule-disconnected = Not connected
 equalizer-rule-replaces = Replaces its rule
 equalizer-rule-choose-device = Choose a device
+equalizer-mode = Mode
+equalizer-preamp-level = Preamp level
+equalizer-no-gain-spoken = No gain
+equalizer-filter-frequency = Filter { $number } frequency
+equalizer-filter-gain = Filter { $number } gain
+equalizer-filter-width = Filter { $number } width
+equalizer-graph = Frequency response
+equalizer-graph-detail = { $count ->
+    [0] No filters
+    [one] 1 filter
+   *[other] { $count } filters
+    }, preamp at { $db } dB
+equalizer-rule-device = Device
 equalizer-rule-choose-sound = Choose a sound
 equalizer-rule-add = Add rule
 equalizer-rule-remove = Remove rule
@@ -980,7 +1019,7 @@ settings-romanized-lyrics = Romanized lyrics
 settings-romanized-lyrics-detail = Show locally generated pronunciation for selected writing systems
 settings-romanization-writing-systems = Writing systems
 settings-lyrics-priority = Provider priority
-settings-lyrics-priority-detail = Among lyrics of the same kind, Sonora shows the source higher up
+settings-lyrics-priority-detail = Sonora shows synced lyrics from the highest source that has them
 settings-lyrics-providers-detail = Choose which services to search for lyrics
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } selected
@@ -1096,6 +1135,14 @@ toast-track-removed-unnamed = Removed from the playlist
 toast-playlist-failed = That change could not be saved
 toast-playlist-busy = Another change is still running
 toast-playlist-signed-out = Sign in to change playlists
+toast-playlist-imported = Imported { $name }
+toast-playlist-imported-partly = Imported { $name }, leaving out { $count ->
+        [one] one song
+       *[other] { $count } songs
+    } not in your library
+toast-playlist-import-empty = None of the songs in { $name } are in your library
+toast-playlist-exported = Playlist exported
+toast-file-dialog-failed = Could not open the file dialog
 toast-queued-track = { $name } added to the queue
 toast-next-track = { $name } plays next
 toast-last-track = { $name } plays last
@@ -1186,6 +1233,7 @@ lyrics-follow = Follow the song again
 lyrics-source = Lyrics from { $source }
 lyrics-source-local = Lyrics from the local file
 lyrics-writers = Written by { $writers }
+lyrics-instrumental-break = Instrumental break
 
 update-available = Sonora { $version } is out
 update-detail = You are on { $running }. Read what changed, or update now.

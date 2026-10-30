@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Adicionar { $count } faixas à playlist
 }
 menu-new-playlist = Nova playlist
+menu-import-playlist = Importar playlist…
 menu-edit-tags = Editar tags
 menu-no-playlists = Nenhuma playlist
 menu-search-playlists = Pesquisar playlist
@@ -166,6 +167,7 @@ menu-select-all = Selecionar tudo
 menu-remove-from-queue = Remover da fila
 menu-rename-playlist = Renomear playlist
 menu-delete-playlist = Excluir playlist
+menu-export-playlist = Exportar playlist…
 menu-add-playlist-to-library = Adicionar à Biblioteca
 menu-remove-playlist-from-library = Remover da Biblioteca
 menu-library-add = Adicionar à Biblioteca
@@ -973,7 +975,6 @@ settings-romanized-lyrics = Letras romanizadas
 settings-romanized-lyrics-detail = Mostrar pronúncia gerada localmente para sistemas de escrita selecionados
 settings-romanization-writing-systems = Sistemas de escrita
 settings-lyrics-priority = Prioridade dos serviços
-settings-lyrics-priority-detail = Entre letras do mesmo tipo, o Sonora mostra a fonte que está mais acima
 settings-lyrics-providers-detail = Escolha em quais serviços buscar letras
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } selecionado
@@ -1085,6 +1086,14 @@ toast-track-removed-unnamed = Removida da playlist
 toast-playlist-failed = Não foi possível salvar a alteração
 toast-playlist-busy = Outra alteração ainda está em andamento
 toast-playlist-signed-out = Faça login para alterar playlists
+toast-playlist-imported = Playlist { $name } importada
+toast-playlist-imported-partly = Playlist { $name } importada sem { $count ->
+        [one] uma música que não está
+       *[other] { $count } músicas que não estão
+    } na sua biblioteca
+toast-playlist-import-empty = Nenhuma música de { $name } está na sua biblioteca
+toast-playlist-exported = Playlist exportada
+toast-file-dialog-failed = Não foi possível abrir a janela de arquivos
 toast-queued-track = { $name } adicionada à fila
 toast-next-track = { $name } tocará a seguir
 toast-last-track = { $name } tocará por último

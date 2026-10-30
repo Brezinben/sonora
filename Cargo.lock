@@ -502,6 +502,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "atomic_float"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "628d228f918ac3b82fe590352cc719d30664a0c13ca3a60266fe02c7132d480a"
+
+[[package]]
 name = "atspi"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -982,6 +988,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -998,6 +1013,16 @@ name = "clap_lex"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
+
+[[package]]
+name = "cli"
+version = "0.45.0"
+dependencies = [
+ "clap",
+ "clap_complete",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "cmake"
@@ -6448,6 +6473,7 @@ name = "rodio"
 version = "0.22.2"
 source = "git+https://github.com/RustAudio/rodio?rev=880aaba54b00aead53651ed1ccbdb672d1375a95#880aaba54b00aead53651ed1ccbdb672d1375a95"
 dependencies = [
+ "atomic_float",
  "cpal",
  "dasp_sample",
  "rubato",
@@ -7280,7 +7306,7 @@ version = "0.45.0"
 dependencies = [
  "anyhow",
  "block2 0.6.2",
- "clap",
+ "cli",
  "dirs",
  "embed",
  "env_logger",
@@ -7397,6 +7423,7 @@ dependencies = [
  "ashpd",
  "async-trait",
  "base64",
+ "cli",
  "dirs",
  "discord-rich-presence",
  "embed",
