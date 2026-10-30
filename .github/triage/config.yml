@@ -10,7 +10,7 @@
 labels:
   bug: something that used to work, or clearly should, does not
   enhancement: a request for behaviour Sonora does not have yet
-  documentation: the README, contributing guide or privacy notice reads wrong
+  documentation: the README or privacy notice reads wrong
   question: the reporter wants to know how something works rather than reporting a defect
   playback: audio output, stutter, gaps, seeking, volume, the equalizer, device switching
   player: the player bar, the queue, transport controls, fullscreen, media keys, rich presence

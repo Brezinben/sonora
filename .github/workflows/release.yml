@@ -755,7 +755,7 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
 
-  # A release brings dev's work to main, and the nightly built before it predates that work.
+  # The nightly built before a release still carries the previous version number.
   # Building the nightly again right away keeps nightly users from running behind the release.
   refresh-nightly:
     needs: release
