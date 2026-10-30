@@ -292,6 +292,25 @@ struct PlaylistMutation {
     shelf: Shelf,
 }
 
+/// What the edit dialog does to a playlist's cover.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CoverEdit {
+    Keep,
+    /// Makes the picture at this path the cover.
+    Replace(PathBuf),
+    /// Puts the provider's own cover back.
+    Remove,
+}
+
+/// The message that says what is wrong with a picked cover file.
+pub fn cover_problem(unusable: music::cover::Unusable) -> &'static str {
+    match unusable {
+        music::cover::Unusable::Unopenable => "playlist-cover-unopenable",
+        music::cover::Unusable::TooLarge => "playlist-cover-too-large",
+        music::cover::Unusable::NotAPicture => "playlist-cover-not-a-picture",
+    }
+}
+
 /// One thing a removal took out of the library, with what an Undo needs to put it back.
 #[derive(Clone)]
 enum Gone {
@@ -958,7 +977,8 @@ pub enum LibraryEvent {
         track: String,
     },
     TracksHidden(Vec<String>),
-    /// A playlist a failed change may have altered in part, so a page showing it loads it again.
+    /// A playlist a failed change may have altered in part, or whose cover changed, so a page
+    /// showing it loads it again.
     PlaylistChanged(String),
 }
 
@@ -1962,6 +1982,92 @@ impl Library {
         );
     }
 
+    /// Saves what the edit dialog changed about a playlist: a new name, a new cover or both, in
+    /// one write. The playlist then shows the cover the provider reports, or the picked file
+    /// while the provider still reports the old one.
+    pub fn edit_playlist(
+        &mut self,
+        id: String,
+        name: Option<String>,
+        cover: CoverEdit,
+        cx: &mut Context<Self>,
+    ) {
+        let picture = match cover {
+            CoverEdit::Keep => {
+                if let Some(name) = name {
+                    self.rename_playlist(id, name, cx);
+                }
+                return;
+            }
+            CoverEdit::Replace(path) => Some(path),
+            CoverEdit::Remove => None,
+        };
+        let before = self
+            .playlist(&id)
+            .and_then(|playlist| playlist.cover.clone());
+        let changed = id.clone();
+        let renamed = name.clone();
+        let done = match (name.is_some(), picture.is_some()) {
+            (true, _) => "toast-playlist-updated",
+            (false, true) => "toast-playlist-cover-changed",
+            (false, false) => "toast-playlist-cover-removed",
+        };
+        self.mutate_playlist(
+            PlaylistMutation {
+                action: "edit playlist",
+                done: Some(done),
+                name: None,
+                target: None,
+                shelf: Shelf::of(&id),
+                invalidated: vec![id.clone()],
+            },
+            move |client| async move {
+                let image = match &picture {
+                    Some(path) => Some(tokio::fs::read(path).await.map_err(|error| {
+                        anyhow::Error::new(music::cover::Unusable::Unopenable)
+                            .context(format!("cannot read {}: {error}", path.display()))
+                    })?),
+                    None => None,
+                };
+                client.set_playlist_cover(&id, image.as_deref()).await?;
+                if let Some(name) = &name {
+                    client.rename_playlist(&id, name).await?;
+                }
+                let reported = match client.playlist(&id).await {
+                    Ok(detail) => detail.playlist.cover,
+                    Err(error) => {
+                        log::warn!("library: cannot read a playlist after its cover: {error:#}");
+                        None
+                    }
+                };
+                Ok(match picture {
+                    Some(path) if reported.is_none() || reported == before => {
+                        Some(format!("file://{}", path.display()))
+                    }
+                    _ => reported,
+                })
+            },
+            move |this, cover, cx| {
+                let bare = cover.is_none();
+                this.amend_playlist(
+                    &changed,
+                    |playlist| {
+                        playlist.cover = cover;
+                        if let Some(name) = renamed {
+                            playlist.name = name;
+                        }
+                    },
+                    cx,
+                );
+                if bare {
+                    this.build_mosaics(cx);
+                }
+                cx.emit(LibraryEvent::PlaylistChanged(changed));
+            },
+            cx,
+        );
+    }
+
     pub fn add_to_playlist(
         &mut self,
         playlist_id: String,
@@ -2569,7 +2675,11 @@ impl Library {
                     }
                     Err(error) => {
                         log::warn!("library: cannot {action}: {error:#}");
-                        Toasts::show(Outcome::Failed, "toast-playlist-failed", cx);
+                        let key = match music::cover::unusable(&error) {
+                            Some(unusable) => cover_problem(unusable),
+                            None => "toast-playlist-failed",
+                        };
+                        Toasts::show(Outcome::Failed, key, cx);
                         for id in invalidated {
                             cx.emit(LibraryEvent::PlaylistChanged(id));
                         }

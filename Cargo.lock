@@ -4396,6 +4396,7 @@ dependencies = [
  "futures",
  "gethostname",
  "http",
+ "image",
  "jiff",
  "kakasi",
  "librespot-core",
@@ -10058,7 +10059,7 @@ dependencies = [
 [[package]]
 name = "ytmusic"
 version = "0.1.0"
-source = "git+https://github.com/sonorahq/ytmusic-rs?rev=a8fb6f5#a8fb6f570abc828b3e899a112f9c8dfbb2e17439"
+source = "git+https://github.com/sonorahq/ytmusic-rs?rev=d47b3ae#d47b3ae3212084e6f3f3027d06b0a9d29dcdcfb9"
 dependencies = [
  "anyhow",
  "async-trait",
