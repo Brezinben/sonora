@@ -9,19 +9,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Control Sonora from a terminal or a script: `sonora toggle`, `next`, `current`, `search`,
+  `play -s <song>` and more, listed by `sonora --help`.
 - Drop a song onto a playlist you own or collaborate on in the sidebar to add it to that playlist.
 
 ### Changed
 
 - Quick picks on Home no longer shows your account name above its title.
+- The lyrics source you rank higher now wins whenever it has synced lyrics, even when a source
+  below it has them word by word.
 
 ### Fixed
 
-- Screen readers now name every switch and dropdown in Settings and the equalizer, and read the
-  setting labels, the version and the team on the About page.
+- Screen readers now read setting labels and their values, the streaming services list, track rows,
+  lyrics, the queue, page headings and empty pages, and say which option is chosen, expanded or
+  playing. Every switch, dropdown, slider and window button has a name.
 - The translucent player bar no longer looks much darker than the rest of a see-through window.
 - Covers saved for the system media controls no longer fill Sonora's cache folder without limit,
   and playlist mosaics no longer leave old copies behind.
+- Fullscreen shows Spotify covers at their original resolution, up to 2000 pixels, instead of
+  300 pixels, and no longer waits on a blurry thumbnail while the cover loads.
+- System media controls, Discord and album pages show Spotify covers at 640 pixels instead of 300.
 
 ## [0.45.0] - 2026-10-27
 

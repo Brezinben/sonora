@@ -973,7 +973,6 @@ settings-romanized-lyrics = Tekste të romanizuara
 settings-romanized-lyrics-detail = Shfaq shqiptimin e gjeneruar lokalisht për sistemet e zgjedhura të shkrimit
 settings-romanization-writing-systems = Sistemet e shkrimit
 settings-lyrics-priority = Përparësia e ofruesve
-settings-lyrics-priority-detail = Midis teksteve të të njëjtit lloj, Sonora shfaq burimin që është më lart
 settings-lyrics-providers-detail = Zgjidh cilët shërbime të kërkohen për tekste
 settings-lyrics-providers-selected = { $count ->
     [one] { $count } i përzgjedhur

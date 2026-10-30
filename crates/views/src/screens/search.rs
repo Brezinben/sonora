@@ -462,6 +462,8 @@ impl SearchView {
         // the active descendant while every card reports its seat in the list.
         .aria_position_in_set(index + 1)
         .aria_size_of_set(total)
+        // The mixed list tags each row with its kind, which the card's name leaves out.
+        .when(compact, |card| card.aria_description(noun(hit.kind())))
         .when(chosen, |card| {
             card.aria_selected(true).aria_active_descendant()
         })
@@ -566,6 +568,7 @@ impl SearchView {
             .when_some(HitMenu::of(hit), |card, target| {
                 card.on_mouse_down(MouseButton::Right, menu(target, &me))
             })
+            .aria_description(noun(kind))
             .into_any_element();
 
         Some(
@@ -574,7 +577,15 @@ impl SearchView {
                 .flex_col()
                 .flex_none()
                 .gap_2()
-                .child(eyebrow(t!("search-best-match"), cx).pb_1())
+                .child({
+                    let label = t!("search-best-match");
+                    eyebrow(label.clone(), cx)
+                        .id("search-best-heading")
+                        .role(Role::Heading)
+                        .aria_level(2)
+                        .aria_label(label)
+                        .pb_1()
+                })
                 .child(card)
                 .into_any_element(),
         )
@@ -646,6 +657,7 @@ impl SearchView {
                 div()
                     .id(id)
                     .role(Role::Heading)
+                    .aria_level(2)
                     .aria_label(title.clone())
                     .pl(gutter)
                     .child(eyebrow(title, cx).pb_1()),
@@ -687,6 +699,7 @@ impl SearchView {
                 div()
                     .id("search-browse-heading")
                     .role(Role::Heading)
+                    .aria_level(2)
                     .aria_label(label.clone())
                     .child(eyebrow(label, cx))
             }))
@@ -706,7 +719,15 @@ impl SearchView {
             .flex_col()
             .gap_6()
             .children(self.best(cx))
-            .child(eyebrow(t!("search-results"), cx).pb_1())
+            .child({
+                let label = t!("search-results");
+                eyebrow(label.clone(), cx)
+                    .id("search-results-heading")
+                    .role(Role::Heading)
+                    .aria_level(2)
+                    .aria_label(label)
+                    .pb_1()
+            })
             .into_any_element();
 
         self.deck(

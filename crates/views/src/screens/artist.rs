@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui::accesskit::Role;
+use gpui::accesskit::{Role, Toggled};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, Pixels, Point, Render, ScrollHandle,
@@ -584,6 +584,7 @@ impl ArtistView {
                     })
                     .collect();
                 let rows = shown.len().div_ceil(columns);
+                let total = shown.len();
                 let height = Card::tile_height(grid.card, window, cx);
                 let width = self.width;
                 let card = grid.card;
@@ -606,19 +607,17 @@ impl ArtistView {
                         // cost of scrolling a long discography.
                         let held = view.read(cx);
                         let listed = held.detail.read(cx).albums();
-                        let cards = shown[start..end].iter().filter_map(|&index| {
-                            let album = listed.get(index)?;
+                        let cards = (start..end).filter_map(|seat| {
+                            let album = listed.get(shown[seat])?;
+                            let id = SharedString::from(format!("artist-release-{}", album.id));
 
                             Some(
-                                cards::album_card(
-                                    ("artist-release", index),
-                                    album,
-                                    &held.playback,
-                                    cx,
-                                )
-                                .tile(card)
-                                .flat()
-                                .into_any_element(),
+                                cards::album_card(id, album, &held.playback, cx)
+                                    .tile(card)
+                                    .flat()
+                                    .aria_position_in_set(seat + 1)
+                                    .aria_size_of_set(total)
+                                    .into_any_element(),
                             )
                         });
 
@@ -639,6 +638,7 @@ impl ArtistView {
                     div()
                         .id("artist-releases-heading")
                         .role(Role::Heading)
+                        .aria_level(2)
                         .aria_label(label.clone())
                         .text_size(theme.text(Text::Title))
                         .font_weight(FontWeight::BOLD)
@@ -655,6 +655,7 @@ impl ArtistView {
                                     .small()
                                     .outline()
                                     .selected(self.release_filter == filter)
+                                    .aria_toggled(Toggled::from(self.release_filter == filter))
                                     .on_click(cx.listener(move |this, _, window, cx| {
                                         if this.release_filter == filter {
                                             return;
@@ -698,6 +699,7 @@ impl ArtistView {
                 .trailing(chevron(expanded))
                 .small()
                 .ghost()
+                .aria_expanded(expanded)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.set_release_view(this.release_filter, !expanded, columns, window, cx);
                 })),
@@ -752,9 +754,12 @@ impl ArtistView {
                         let Some(album) = detail.appears_on().get(index) else {
                             return div().into_any_element();
                         };
-                        cards::album_card(("artist-appears", index), album, &held.playback, cx)
+                        let id = SharedString::from(format!("artist-appears-{}", album.id));
+                        cards::album_card(id, album, &held.playback, cx)
                             .tile(card)
                             .flat()
+                            .aria_position_in_set(index + 1)
+                            .aria_size_of_set(appears)
                             .into_any_element()
                     },
                 ))
@@ -778,6 +783,7 @@ impl ArtistView {
                 .trailing(chevron(expanded))
                 .small()
                 .ghost()
+                .aria_expanded(expanded)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.shown.set(match expanded {
                         true => LISTED,
@@ -1036,6 +1042,7 @@ impl Render for ArtistView {
                     div()
                         .id("artist-popular-heading")
                         .role(Role::Heading)
+                        .aria_level(2)
                         .aria_label(label.clone())
                         .pb_3()
                         .text_size(theme.text(Text::Title))

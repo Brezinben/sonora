@@ -517,6 +517,8 @@ impl MenuItem {
 pub struct Menu {
     base: Stateful<Div>,
     items: Vec<MenuItem>,
+    /// What a screen reader calls the menu, read as focus enters it.
+    name: Option<SharedString>,
     dismiss: Option<Close>,
     action: Option<Action>,
     priority: usize,
@@ -536,6 +538,7 @@ impl Menu {
         Self {
             base: div().id(id),
             items: Vec::new(),
+            name: None,
             dismiss: None,
             action: None,
             priority: 1,
@@ -557,6 +560,12 @@ impl Menu {
 
     pub fn items(mut self, items: impl IntoIterator<Item = MenuItem>) -> Self {
         self.items.extend(items);
+        self
+    }
+
+    /// Names the menu for screen readers, usually after the button or setting that opens it.
+    pub fn name(mut self, name: impl Into<SharedString>) -> Self {
+        self.name = Some(name.into());
         self
     }
 
@@ -655,6 +664,7 @@ impl RenderOnce for Menu {
         let Self {
             mut base,
             items,
+            name,
             dismiss,
             action,
             priority,
@@ -735,6 +745,19 @@ impl RenderOnce for Menu {
             scrollbar: scrollbar.clone(),
         });
         let row_searches = searches.clone();
+        // Separators and custom content are not choices, so a screen reader counts only the
+        // items around them when it says how far down the menu it is.
+        let mut choices = 0;
+        let positions: Vec<Option<usize>> = items
+            .iter()
+            .map(|item| match item.separator || item.content.is_some() {
+                true => None,
+                false => {
+                    choices += 1;
+                    Some(choices)
+                }
+            })
+            .collect();
         let rows = items.into_iter().enumerate().map(move |(place, item)| {
             let MenuItem {
                 id,
@@ -796,6 +819,10 @@ impl RenderOnce for Menu {
                 .rounded(tucked)
                 .role(gpui::accesskit::Role::MenuItem)
                 .aria_label(label.clone())
+                .when_some(positions[place], |this, position| {
+                    this.aria_position_in_set(position)
+                        .aria_size_of_set(choices)
+                })
                 .when(selected, |this| this.aria_selected(true))
                 .when(checked, |this| {
                     this.aria_toggled(gpui::accesskit::Toggled::True)
@@ -1083,6 +1110,7 @@ impl RenderOnce for Menu {
             })
             .id("menu-panel")
             .role(gpui::accesskit::Role::Menu)
+            .when_some(name, |this, name| this.aria_label(name))
             .flex()
             .flex_col()
             .p_1()

@@ -1007,7 +1007,6 @@ settings-romanized-lyrics = Романізація тексту
 settings-romanized-lyrics-detail = Показувати локально зібрану вимову для вибраних систем письма
 settings-romanization-writing-systems = Системи письма
 settings-lyrics-priority = Пріоритет джерел
-settings-lyrics-priority-detail = Серед текстів одного типу Sonora показує те джерело, що вище в списку
 settings-lyrics-providers-detail = Виберіть сервіси для пошуку текстів пісень
 settings-lyrics-providers-selected = { $count ->
     [one] Вибрано { $count } джерело

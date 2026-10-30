@@ -1006,7 +1006,6 @@ settings-romanized-lyrics = Romanizované texty
 settings-romanized-lyrics-detail = Zobrazuje místně vytvořenou výslovnost pro vybrané písmové systémy
 settings-romanization-writing-systems = Písmové systémy
 settings-lyrics-priority = Priorita poskytovatelů
-settings-lyrics-priority-detail = Mezi texty stejného druhu Sonora zobrazí ten ze zdroje výš v seznamu
 settings-lyrics-providers-detail = Vyber služby, ve kterých se mají hledat texty písní
 settings-lyrics-providers-selected = { $count ->
     [one] Vybrán { $count } poskytovatel

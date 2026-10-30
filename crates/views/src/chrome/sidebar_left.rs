@@ -10,7 +10,7 @@ use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, DragMoveEvent, ElementId, Entity, MouseButton, MouseDownEvent,
-    Pixels, Point, Render, ScrollHandle, svg,
+    Pixels, Point, Render, ScrollHandle, SharedString, svg,
 };
 use gpui::{Window, div, px};
 use router::{
@@ -500,7 +500,9 @@ impl SidebarLeft {
         let origin = Origin::from(&pin);
         let playing = self.playback.read(cx).playing_from(&origin, cx) == Some(true);
 
-        let card = Card::new(("pinned", index), pin.label())
+        let key = format!("{}-{}", pin.kind.key(), pin.id);
+        let card = Card::new(SharedString::from(format!("pinned-{key}")), pin.label())
+            .aria_description(i18n::lookup(pin.kind.key(), None))
             .cover(pin.cover.clone())
             .fallback(pin.kind.icon())
             .when(pin.kind.round(), Card::circle)
@@ -557,7 +559,7 @@ impl SidebarLeft {
             );
 
         div()
-            .id(("pinned-slot", index))
+            .id(SharedString::from(format!("pinned-slot-{key}")))
             .role(Role::ListItem)
             .aria_position_in_set(index + 1)
             .aria_size_of_set(total)
@@ -592,12 +594,13 @@ impl SidebarLeft {
         match group {
             Some(group) => row
                 .trailing(chevron(self.opened(group)))
+                .aria_expanded(self.opened(group))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.flip(group);
                     cx.notify();
                 })),
             None => row
-                .when(active, |button| button.bg(accent))
+                .when(active, |button| button.bg(accent).aria_selected(true))
                 .on_click(move |_, _, cx| match destination.in_settings() {
                     true => open_settings(cx),
                     false => navigate(destination.clone(), cx),
@@ -620,7 +623,7 @@ impl SidebarLeft {
 
             nav_row(id, key, tint, accent)
                 .flex_1()
-                .when(chosen, |button| button.bg(accent))
+                .when(chosen, |button| button.bg(accent).aria_selected(true))
                 .on_click(move |_, _, cx| navigate(destination.clone(), cx))
         };
 
@@ -842,12 +845,13 @@ fn hint(cx: &App) -> AnyElement {
         .text_size(theme.text(Text::Small))
         .text_color(theme.muted_foreground)
         .text_center()
-        .child(div().min_w_0().child(i18n::lookup("nav-pin-hint", None)))
+        .child(ui::spoken("sidebar-pin-hint", i18n::lookup("nav-pin-hint", None)).min_w_0())
         .into_any_element()
 }
 
 fn vacancy() -> AnyElement {
     Vacancy::new(i18n::lookup("nav-nothing-pinned", None))
+        .spoken("sidebar-nothing-pinned")
         .icon("icons/pin.svg")
         .compact()
         .flex_none()

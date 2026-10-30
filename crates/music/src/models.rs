@@ -3,6 +3,15 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+/// A size of the same cover that a provider can name without fetching anything.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoverSize {
+    /// Big enough for a header or a desktop widget, 640 pixels on Spotify.
+    Large,
+    /// The original upload, for a cover that fills the screen.
+    Full,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UserProfile {
     pub id: String,
