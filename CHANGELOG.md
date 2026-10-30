@@ -27,6 +27,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The translucent player bar no longer looks much darker than the rest of a see-through window.
 - Covers saved for the system media controls no longer fill Sonora's cache folder without limit,
   and playlist mosaics no longer leave old copies behind.
+- Fullscreen shows Spotify covers at their original resolution, up to 2000 pixels, instead of
+  300 pixels, and no longer waits on a blurry thumbnail while the cover loads.
+- System media controls, Discord and album pages show Spotify covers at 640 pixels instead of 300.
 
 ## [0.45.0] - 2026-10-27
 
