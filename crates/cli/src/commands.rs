@@ -41,6 +41,24 @@ pub enum Request {
     Provider(ProviderCommand),
     /// A search on the current provider. Stands for `sonora search <query>`
     Search(SearchQuery),
+    /// What plays, sent again every time it changes, until the command line hangs up. Stands
+    /// for `sonora watch`
+    Watch(Watch),
+}
+
+impl Request {
+    /// Whether the answer is a stream of replies rather than one, so the command line waits
+    /// for as long as it takes rather than giving up on a slow answer.
+    pub fn streams(&self) -> bool {
+        matches!(self, Self::Watch(_))
+    }
+}
+
+/// How `sonora watch` follows what plays.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Watch {
+    /// Also a line every second while a track plays, for a clock. Stands for `--position`
+    pub position: bool,
 }
 
 /// What to search for on the current provider, and how much of it to answer.
