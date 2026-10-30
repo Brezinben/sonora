@@ -934,8 +934,8 @@ impl MusicApi for DeezerClient {
 
     async fn set_album_saved(&self, album_id: &str, saved: bool) -> Result<()> {
         let method = match saved {
-            true => "favorite_album.add",
-            false => "favorite_album.remove",
+            true => "album.addFavorite",
+            false => "album.deleteFavorite",
         };
         self.favorite(method, "ALB_ID", album_id).await
     }
