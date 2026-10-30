@@ -52,10 +52,10 @@ pub use audio::Meter;
 pub use equalizer::Equalizer;
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
-    Contributor, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed, Lyrics, LyricsHit,
-    LyricsLane, LyricsLine, LyricsQuery, LyricsWord, PinOutcome, PinTarget, PinTargetKind,
-    Playlist, PlaylistDetail, ReleaseType, RomanizedText, SavedArtist, Track, TrackKey, TrackTags,
-    UserDetail, UserProfile, Voice, WritingSystem,
+    Contributor, CoverSize, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed, Lyrics,
+    LyricsHit, LyricsLane, LyricsLine, LyricsQuery, LyricsWord, PinOutcome, PinTarget,
+    PinTargetKind, Playlist, PlaylistDetail, ReleaseType, RomanizedText, SavedArtist, Track,
+    TrackKey, TrackTags, UserDetail, UserProfile, Voice, WritingSystem,
 };
 pub use output::{Server as SoundServer, missing_bridge};
 pub use spectrum::{Analyzer, Level, Listening, Spectrum, Watch};
@@ -115,6 +115,12 @@ pub trait MusicApi: Send + Sync {
     /// The provider's device network, for a provider that has one. Spotify Connect is the
     /// only one so far.
     fn connect(&self) -> Option<Arc<connect::Connect>> {
+        None
+    }
+
+    /// A cover url this provider handed out, at `size`. It is worked out from the url alone,
+    /// so `None` means the provider cannot tell and the caller loads the album instead.
+    fn cover_at(&self, _cover: &str, _size: CoverSize) -> Option<String> {
         None
     }
 
