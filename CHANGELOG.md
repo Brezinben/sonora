@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Control Sonora from a terminal or a script: `sonora toggle`, `next`, `current`, `search`,
   `play -s <song>` and more, listed by `sonora --help`.
+- `sonora seek` takes a time such as `1:30`, or a step such as `+10` or `-10`, besides a percent.
 - Drop a song onto a playlist you own or collaborate on in the sidebar to add it to that playlist.
 - Hold Shift while dropping a song onto a sidebar playlist to move it out of its playlist or your
   favorites.

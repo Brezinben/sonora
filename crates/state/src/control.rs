@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use cli::commands::{
     self, Item, Kind, Level, PlaybackCommand, ProviderCommand, QueueCommand, Request, SearchQuery,
-    Switch, Watch,
+    Switch, Time, Watch,
 };
 use cli::wire::{self, Current, Failure, Reply, State, Value};
 use futures::future;
@@ -525,6 +525,10 @@ fn play(playback: &mut Playback, command: PlaybackCommand, cx: &mut Context<Play
         PlaybackCommand::Next => playback.next(cx),
         PlaybackCommand::Previous => playback.previous(cx),
         PlaybackCommand::Seek(percent) => playback.seek_fraction(f32::from(percent) / 100., cx),
+        PlaybackCommand::SeekTime(time) => {
+            let target = moment(playback, time, cx);
+            playback.seek(target, cx);
+        }
         PlaybackCommand::CurrentTrack => {
             return Reply::Value(Value::Current(current(playback, cx)));
         }
@@ -615,6 +619,31 @@ fn settled_on(session: &Session, slug: &str) -> bool {
             session.state(),
             SessionState::SignedIn(_) | SessionState::Offline(_)
         )
+}
+
+/// Where a seek in time lands: the time asked for, or a step from where the track plays now,
+/// held inside the track on the steered device when there is one.
+fn moment(playback: &Playback, time: Time, cx: &App) -> Duration {
+    let (now, length) = match playback.steered(cx) {
+        Some(steered) => (steered.state.live_position(), steered.state.duration),
+        None => (
+            playback.live_position(),
+            playback
+                .track()
+                .map_or(Duration::ZERO, |track| track.duration),
+        ),
+    };
+    let target = match time {
+        Time::To(at) => Duration::from_secs(at),
+        Time::By(step) => match step < 0 {
+            true => now.saturating_sub(Duration::from_secs(step.unsigned_abs())),
+            false => now.saturating_add(Duration::from_secs(step.unsigned_abs())),
+        },
+    };
+    match length.is_zero() {
+        true => target,
+        false => target.min(length),
+    }
 }
 
 /// What plays now, on the steered device when there is one, or `None` when nothing is loaded.
