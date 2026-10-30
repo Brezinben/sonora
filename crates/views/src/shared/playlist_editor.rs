@@ -5,7 +5,7 @@ use gpui::{
 };
 use i18n::t;
 use music::Playlist;
-use state::{Addition, CoverEdit, Outcome, Shelf, Sonora, Toasts, cover_problem};
+use state::{Addition, CoverEdit, Leaving, Outcome, Shelf, Sonora, Toasts, cover_problem};
 use ui::{ActiveTheme as _, Artwork, Button, Modal};
 use ui::{Dismiss, FORM_CONTEXT, Input, Submit};
 
@@ -21,6 +21,7 @@ pub(crate) enum Edit {
     Again {
         playlist: Playlist,
         track: String,
+        leaving: Option<Leaving>,
     },
 }
 
@@ -167,8 +168,13 @@ impl PlaylistEditor {
             Edit::Delete(playlist) => library.update(cx, |library, cx| {
                 library.delete_playlist(playlist.id, cx);
             }),
-            Edit::Again { playlist, track } => library.update(cx, |library, cx| {
-                library.add_to_playlist(playlist.id, track, cx);
+            Edit::Again {
+                playlist,
+                track,
+                leaving,
+            } => library.update(cx, |library, cx| match leaving {
+                Some(leaving) => library.move_to_playlist(playlist.id, track, leaving, cx),
+                None => library.add_to_playlist(playlist.id, track, cx),
             }),
             _ => {}
         }
