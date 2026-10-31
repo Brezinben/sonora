@@ -1,8 +1,8 @@
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, Context, CursorStyle, Element, ElementInputHandler, Entity, GlobalElementId,
-    InspectorElementId, LayoutId, MouseButton, PaintQuad, Pixels, Point, ShapedLine, Style,
-    TextRun, UnderlineStyle, Window, div, fill, point, px, relative, size, svg,
+    App, Bounds, ContentMask, Context, CursorStyle, Element, ElementInputHandler, Entity,
+    GlobalElementId, InspectorElementId, LayoutId, MouseButton, PaintQuad, Pixels, Point,
+    ShapedLine, Style, TextRun, UnderlineStyle, Window, div, fill, point, px, relative, size, svg,
 };
 
 use i18n::t;
@@ -23,8 +23,10 @@ struct Text {
 
 struct Painted {
     line: Option<ShapedLine>,
-    /// Where the line starts, which is the bounds' start unless the text keeps to the end.
+    /// Where the line starts, which is the bounds' start unless the text keeps to the end or
+    /// scrolled.
     origin: Point<Pixels>,
+    scroll: Pixels,
     caret: Option<PaintQuad>,
     selection: Option<PaintQuad>,
 }
@@ -155,10 +157,21 @@ impl Element for Text {
         let line = window
             .text_system()
             .shape_line(text, font_size, &runs, None);
-        let left = match input.end {
-            true => bounds.left() + (bounds.size.width - line.width - CARET).max(Pixels::ZERO),
-            false => bounds.left(),
+        let room = bounds.size.width - CARET;
+        let at_caret = line.x_for_index(cursor);
+        let scroll = match line.width > room {
+            true => input
+                .scroll
+                .max(at_caret - room)
+                .min(at_caret)
+                .min(line.width - room)
+                .max(Pixels::ZERO),
+            false => Pixels::ZERO,
         };
+        let left = match input.end {
+            true => bounds.left() + (room - line.width).max(Pixels::ZERO),
+            false => bounds.left(),
+        } - scroll;
 
         let (selection, caret) = match selected.is_empty() {
             true => (
@@ -186,6 +199,7 @@ impl Element for Text {
         Painted {
             line: Some(line),
             origin: point(left, bounds.top()),
+            scroll,
             caret,
             selection,
         }
@@ -209,31 +223,34 @@ impl Element for Text {
         );
 
         let focused = focus.is_focused(window);
-        if focused && let Some(selection) = painted.selection.take() {
-            window.paint_quad(selection);
-        }
-
         let Some(line) = painted.line.take() else {
             return;
         };
         let origin = painted.origin;
-        line.paint(
-            origin,
-            window.line_height(),
-            gpui::TextAlign::Left,
-            None,
-            window,
-            cx,
-        )
-        .ok();
+        // scrolled text runs past the field's start, which must not draw over its padding
+        window.with_content_mask(Some(ContentMask { bounds }), |window| {
+            if focused && let Some(selection) = painted.selection.take() {
+                window.paint_quad(selection);
+            }
+            line.paint(
+                origin,
+                window.line_height(),
+                gpui::TextAlign::Left,
+                None,
+                window,
+                cx,
+            )
+            .ok();
+            if focused && let Some(caret) = painted.caret.take() {
+                window.paint_quad(caret);
+            }
+        });
 
-        if focused && let Some(caret) = painted.caret.take() {
-            window.paint_quad(caret);
-        }
-
+        let scroll = painted.scroll;
         self.input.update(cx, |input, _| {
             input.last_layout = (!input.content.is_empty()).then_some(line);
             input.last_bounds = Some(Bounds::from_corners(origin, bounds.bottom_right()));
+            input.scroll = scroll;
         });
     }
 }

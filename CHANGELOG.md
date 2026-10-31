@@ -49,6 +49,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A text field scrolls to keep the cursor in view, so the end of a long search or pasted link
+  can be read and edited.
 - Screen readers now read setting labels and their values, the streaming services list, track rows,
   lyrics, the queue, page headings and empty pages, and say which option is chosen, expanded or
   playing. Every switch, dropdown, slider and window button has a name.
