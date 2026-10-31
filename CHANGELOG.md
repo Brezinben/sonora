@@ -10,6 +10,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Drop a song onto a playlist you own or collaborate on in the sidebar to add it to that playlist.
+- A sparkle in the queue marks the songs that Spotify's smart shuffle recommends.
 
 ### Changed
 

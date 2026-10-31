@@ -659,11 +659,9 @@ impl Aside {
         } = look;
         let theme = *cx.theme();
         let queue_index = position.upcoming().filter(|_| !remote);
-        let uid = Sonora::global(cx)
-            .queue
-            .read(cx)
-            .uid(position)
-            .map(str::to_owned);
+        let queue = Sonora::global(cx).queue.read(cx);
+        let uid = queue.uid(position).map(str::to_owned);
+        let recommended = queue.recommended(position);
         let play_uid = uid.clone();
         let press_uid = uid.clone();
         let current = position == QueuePosition::Current;
@@ -686,6 +684,15 @@ impl Aside {
                 .items_center()
                 .gap_1()
                 .min_w_0()
+                .when(recommended, |this| {
+                    this.child(
+                        svg()
+                            .path(icons::path("icons/sparkles.svg"))
+                            .flex_none()
+                            .size(theme.text(Text::Small))
+                            .text_color(theme.primary),
+                    )
+                })
                 .child(
                     crate::shared::cells::artist_links(
                         SharedString::from(format!("queue-track-artist-{index}")),

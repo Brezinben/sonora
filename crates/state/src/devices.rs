@@ -28,7 +28,7 @@ const REMOTE_TRACKS: usize = 25;
 /// How often the views are told that another device's playback moved on while it plays.
 const TICK: Duration = Duration::from_millis(500);
 /// The actual history and upcoming order supplied by another device.
-type RemoteWindow = (Vec<(Track, bool)>, bool, Vec<(Track, bool)>);
+type RemoteWindow = (Vec<(Track, QueuedTrack)>, bool, Vec<(Track, QueuedTrack)>);
 
 /// The provider's device network as the app sees it: this app listed as a device, playback
 /// reported to the account's other apps, their commands carried out, and the account's other
@@ -1181,7 +1181,7 @@ async fn load(
             .by_ref()
             .take(start.previous.len())
             .zip(&start.previous)
-            .filter_map(|(track, listed)| Some((track?, listed.queued)))
+            .filter_map(|(track, listed)| Some((track?, listed.clone())))
             .collect();
         // The current song has its own slot in the resolver, outside history and upcoming.
         if start.track.is_some() {
@@ -1189,7 +1189,7 @@ async fn load(
         }
         let next = resolved
             .zip(&start.upcoming)
-            .filter_map(|(track, listed)| Some((track?, listed.queued)))
+            .filter_map(|(track, listed)| Some((track?, listed.clone())))
             .collect();
         (
             past,

@@ -58,7 +58,8 @@ const ACK_DELAY: Duration = Duration::from_millis(600);
 /// How long after claiming playback a report of another active device is taken to be older than
 /// the claim.
 const CLAIM_GRACE: Duration = Duration::from_secs(3);
-/// The most upcoming tracks a start carries over from the device that sent it.
+/// The most upcoming tracks a start carries over from the device that sent it. A smart shuffle
+/// start carries the whole enhanced playlist, so its recommendations reach past the first songs.
 const CARRIED: usize = 80;
 /// The recent history window Spotify includes in its player state.
 const PREVIOUS: usize = 10;
@@ -1098,10 +1099,8 @@ impl Worker {
         let session = self.session.clone();
         let blind = play.context.pages.iter().all(|page| page.tracks.is_empty());
         let (Some(_), Some(uri), true) = (uid, uri, blind) else {
-            out.send(Event::Command(Command::Start(started_by_play(
-                &play, false,
-            ))))
-            .ok();
+            out.send(Event::Command(Command::Start(started_by_play(&play, None))))
+                .ok();
             return;
         };
         self.session.spawn(async move {
@@ -1109,10 +1108,8 @@ impl Worker {
                 Ok(context) => play.context.pages = context.pages,
                 Err(error) => log::warn!("connect: cannot read {} back: {error}", redacted(&uri)),
             }
-            out.send(Event::Command(Command::Start(started_by_play(
-                &play, false,
-            ))))
-            .ok();
+            out.send(Event::Command(Command::Start(started_by_play(&play, None))))
+                .ok();
         });
     }
 
@@ -1207,13 +1204,16 @@ impl Worker {
                 return;
             }
         };
-        self.smart = Some(Enhanced {
-            context: uri.clone(),
-            recommended,
-        });
+        let recommended = &self
+            .smart
+            .insert(Enhanced {
+                context: uri.clone(),
+                recommended,
+            })
+            .recommended;
         if let Some(mut play) = play {
             play.context.pages = context.pages;
-            let start = started_by_play(&play, true);
+            let start = started_by_play(&play, Some(recommended));
             self.out.send(Event::Command(Command::Start(start))).ok();
             return;
         }
@@ -1232,8 +1232,7 @@ impl Worker {
             .iter()
             .filter(|track| track.queued)
             .cloned()
-            .chain(occurrences(following, false))
-            .take(CARRIED)
+            .chain(picks(following, recommended))
             .collect();
         // a handover replaces the whole queue, where a queue edit keeps the old order past its
         // window and plays songs from the window a second time
@@ -1261,7 +1260,7 @@ impl Worker {
     fn translate(&mut self, command: Wire) -> Option<Vec<Command>> {
         Some(match command {
             Wire::Transfer(transfer) => vec![Command::Start(self.transferred(transfer.data?))],
-            Wire::Play(play) => vec![Command::Start(started_by_play(&play, false))],
+            Wire::Play(play) => vec![Command::Start(started_by_play(&play, None))],
             Wire::Pause(_) => vec![Command::Pause],
             Wire::Resume(_) => vec![Command::Play],
             Wire::SkipNext(_) => vec![Command::Next],
@@ -1790,6 +1789,7 @@ fn listed_track(track: &ProvidedTrack) -> Option<QueuedTrack> {
         uid: track.uid.clone(),
         queued: is_queued(track),
         added_by: adder(track),
+        recommended: track.provider == RECOMMENDED,
     })
 }
 
@@ -1856,6 +1856,16 @@ fn collection(uri: &str) -> Option<Collection> {
         ["spotify", "user", _, "collection"] => Some(Collection::Saved),
         _ => None,
     }
+}
+
+/// The smart shuffle collection as queue occurrences, each marked when Spotify recommended it.
+fn picks(ids: Vec<String>, recommended: &HashSet<String>) -> Vec<QueuedTrack> {
+    ids.into_iter()
+        .map(|id| QueuedTrack {
+            recommended: recommended.contains(&id),
+            ..QueuedTrack::new(id, false)
+        })
+        .collect()
 }
 
 /// The occurrences a list of provider ids names, all with the same provenance.
@@ -1950,9 +1960,9 @@ fn started_by_transfer(state: TransferState, now: i64) -> Start {
 }
 
 /// What a play command from another device asks for.
-/// `enhanced` says the pages are the smart shuffle collection, which this app shuffles itself and
-/// hands over as the queue.
-fn started_by_play(play: &PlayCommand, enhanced: bool) -> Start {
+/// `enhanced` holds the recommendations when the pages are the smart shuffle collection, which this
+/// app shuffles itself and hands over as the queue.
+fn started_by_play(play: &PlayCommand, enhanced: Option<&HashSet<String>>) -> Start {
     let tracks: Vec<_> = play
         .context
         .pages
@@ -1988,7 +1998,7 @@ fn started_by_play(play: &PlayCommand, enhanced: bool) -> Start {
         .and_then(|skip| skip.track_index)
         .map(|index| index as usize);
     let (track, upcoming) = match enhanced {
-        true => {
+        Some(recommended) => {
             let mut rest: Vec<_> = listed
                 .into_iter()
                 .filter(|id| Some(id) != track.as_ref())
@@ -1996,10 +2006,9 @@ fn started_by_play(play: &PlayCommand, enhanced: bool) -> Start {
             fastrand::shuffle(&mut rest);
             // with no song named, a shuffle starts anywhere rather than on the first song
             let track = track.or_else(|| rest.pop());
-            rest.truncate(CARRIED);
-            (track, occurrences(rest, false))
+            (track, picks(rest, recommended))
         }
-        false => {
+        None => {
             let upcoming = occurrences(
                 listed
                     .into_iter()
@@ -2021,8 +2030,8 @@ fn started_by_play(play: &PlayCommand, enhanced: bool) -> Start {
             position: Duration::from_millis(play.options.seek_to.unwrap_or_default().into()),
             playing: !play.options.initially_paused.unwrap_or_default(),
             shuffle: match enhanced {
-                true => Some(true),
-                false => play
+                Some(_) => Some(true),
+                None => play
                     .options
                     .player_options_override
                     .as_ref()
@@ -2030,7 +2039,7 @@ fn started_by_play(play: &PlayCommand, enhanced: bool) -> Start {
             },
             ..Default::default()
         }),
-        preserve_queue: enhanced,
+        preserve_queue: enhanced.is_some(),
         restart: true,
     }
 }
