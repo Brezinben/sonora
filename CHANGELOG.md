@@ -40,6 +40,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Pasting text copied on Windows into a field, or into the Jam link with its Paste button, no
+  longer leaves hidden characters that can break a search.
 - Screen readers now read setting labels and their values, the streaming services list, track rows,
   lyrics, the queue, page headings and empty pages, and say which option is chosen, expanded or
   playing. Every switch, dropdown, slider and window button has a name.
