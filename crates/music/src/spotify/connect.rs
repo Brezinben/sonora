@@ -891,6 +891,7 @@ impl Worker {
             .claimed_at
             .is_none_or(|claimed| claimed.elapsed() > CLAIM_GRACE);
         self.active_device = cluster.active_device_id.clone();
+        capture(cluster);
         if self.active_since.is_some() && elsewhere && fresh {
             self.active_since = None;
             self.out.send(Event::Command(Command::Released)).ok();
@@ -989,6 +990,8 @@ impl Worker {
     fn request(&mut self, (request, reply): RequestReply) {
         self.last_command = (request.message_id, request.sent_by_device_id.clone());
         log::debug!("connect: asked, {}", request.command);
+        // shortcut: temporary smart shuffle capture, remove once the protocol is known
+        log::debug!("connect: capture, command {:?}", request.command);
         if let Wire::Play(play) = request.command {
             self.play(*play);
             reply.send(Reply::Success).ok();
@@ -1831,4 +1834,27 @@ fn collection_item(bytes: &[u8]) -> protobuf::Result<Option<Event>> {
         }),
         _ => Some(Event::LibraryChanged),
     })
+}
+
+/// Logs the parts of a cluster where smart shuffle may show: the options, the context and
+/// where each upcoming song comes from.
+fn capture(cluster: &Cluster) {
+    let state = &cluster.player_state;
+    log::debug!(
+        "connect: capture, active {} context {} url {} metadata {:?} options {:?} restrictions {:?}",
+        cluster.active_device_id,
+        state.context_uri,
+        state.context_url,
+        state.context_metadata,
+        state.options,
+        state.restrictions,
+    );
+    for (at, track) in state.next_tracks.iter().take(20).enumerate() {
+        log::debug!(
+            "connect: capture, next {at} {} provider {} metadata {:?}",
+            track.uri,
+            track.provider,
+            track.metadata,
+        );
+    }
 }
