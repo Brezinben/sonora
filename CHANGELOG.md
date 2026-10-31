@@ -25,6 +25,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Search keeps your recent searches and lists them when you click the empty field or press Down.
   Hover one and press its cross to remove it.
 - Categories in Search show a cover on Apple Music, YouTube Music and Subsonic servers too.
+- Install a theme from sonorahq.org/themes together with all its variants, such as light and dark.
 
 ### Changed
 
