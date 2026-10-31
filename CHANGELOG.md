@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Control Sonora from a terminal or a script: `sonora toggle`, `next`, `current`, `search`,
   `play -s <song>` and more, listed by `sonora --help`.
+- `sonora seek` takes a time such as `1:30`, or a step such as `+10` or `-10`, besides a percent.
 - Drop a song onto a playlist you own or collaborate on in the sidebar to add it to that playlist.
 - Hold Shift while dropping a song onto a sidebar playlist to move it out of its playlist or your
   favorites.
@@ -19,10 +20,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   left out, and an export saved beside your music lists it by relative path.
 - `sonora watch` prints what plays on every change, one line of JSON each, for status bars.
 - `sonora current` also says which provider plays, whether the song is liked and what it plays from.
+- Typing in Search suggests songs, artists, albums and playlists under the field, and Enter or
+  the new Search button opens the full results.
+- Search keeps your recent searches and lists them when you click the empty field or press Down.
+  Hover one and press its cross to remove it.
+- Categories in Search show a cover on Apple Music, YouTube Music and Subsonic servers too.
 
 ### Changed
 
+- Escape in a text field takes the cursor out of it. In Search the first Escape closes the
+  suggestions and the second leaves the field.
+- Best match is no longer repeated in the lists below it, and the arrow keys stop on it.
+- Search results fade out under the search field as they scroll instead of being cut off.
 - Quick picks on Home no longer shows your account name above its title.
+- Apple Music's Home leads with Recently played again, and Recently added sits below the
+  playlists Apple made for you.
 - The lyrics source you rank higher now wins whenever it has synced lyrics, even when a source
   below it has them word by word.
 

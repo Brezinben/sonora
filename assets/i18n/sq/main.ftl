@@ -430,6 +430,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Zgjedhje të shpejta
 home-quick-picks-empty = Pëlqe disa këngë dhe ato do të shfaqen këtu
 home-recently-added = Shtuar së fundi
+home-recently-played = Luajtur së fundi
 home-playlists = Lista luajtjeje
 home-favorite-albums = Albumet e preferuara
 home-artists = Artistë
@@ -438,6 +439,9 @@ home-collection-albums = Albume nga koleksioni yt
 # search page
 search-placeholder = Çfarë do të dëgjosh?
 search-browse = Shfleto të gjitha
+search-submit = Kërko
+search-recent = Kërkimet e fundit
+search-forget = Hiqe nga historiku
 genre-empty = Ende asgjë për të shfaqur këtu
 search-best-match = Përputhja më e mirë
 search-no-matches = Asnjë përputhje

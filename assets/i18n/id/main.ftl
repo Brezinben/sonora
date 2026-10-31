@@ -430,6 +430,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Pilihan cepat
 home-quick-picks-empty = Sukai beberapa lagu dan rekomendasinya akan muncul di sini
 home-recently-added = Baru ditambahkan
+home-recently-played = Baru diputar
 home-playlists = Playlist
 home-favorite-albums = Album favorit
 home-artists = Artis
@@ -438,6 +439,9 @@ home-collection-albums = Album dari koleksi Anda
 # search page
 search-placeholder = Apa yang ingin Anda dengarkan?
 search-browse = Jelajahi semua
+search-submit = Cari
+search-recent = Pencarian terbaru
+search-forget = Hapus dari riwayat
 genre-empty = Belum ada yang bisa ditampilkan di sini
 search-best-match = Hasil teratas
 search-no-matches = Tidak ada hasil yang cocok

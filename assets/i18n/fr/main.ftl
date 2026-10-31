@@ -434,6 +434,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Sélection rapide
 home-quick-picks-empty = Likez quelques titres et ils apparaîtront ici
 home-recently-added = Ajoutés récemment
+home-recently-played = Écoutés récemment
 home-playlists = Playlists
 home-favorite-albums = Albums favoris
 home-artists = Artistes
@@ -442,6 +443,9 @@ home-collection-albums = Albums de votre collection
 # search page
 search-placeholder = Que voulez-vous écouter ?
 search-browse = Tout parcourir
+search-submit = Rechercher
+search-recent = Recherches récentes
+search-forget = Retirer de l'historique
 genre-empty = Rien à afficher ici pour l'instant
 search-best-match = Meilleur résultat
 search-no-matches = Aucun résultat

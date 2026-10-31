@@ -453,6 +453,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Быстрый выбор
 home-quick-picks-empty = Добавьте несколько треков, и они появятся здесь
 home-recently-added = Недавно добавленные
+home-recently-played = Недавно прослушанные
 home-playlists = Плейлисты
 home-favorite-albums = Избранные альбомы
 home-artists = Исполнители
@@ -461,6 +462,9 @@ home-collection-albums = Альбомы из вашей коллекции
 # search page
 search-placeholder = Что хотите послушать?
 search-browse = Всё подряд
+search-submit = Найти
+search-recent = Недавние запросы
+search-forget = Удалить из истории
 genre-empty = Здесь пока пусто
 search-best-match = Лучшее совпадение
 search-no-matches = Ничего не найдено

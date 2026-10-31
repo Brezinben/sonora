@@ -385,6 +385,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = クイックピック
 home-quick-picks-empty = 何曲かお気に入りに追加するとここに表示されます
 home-recently-added = 最近追加した項目
+home-recently-played = 最近再生した項目
 home-playlists = プレイリスト
 home-favorite-albums = お気に入りのアルバム
 home-artists = アーティスト
@@ -393,6 +394,9 @@ home-collection-albums = コレクションのアルバム
 # search page
 search-placeholder = 何を聴きたいですか？
 search-browse = すべてのジャンル
+search-submit = 検索
+search-recent = 最近の検索
+search-forget = 履歴から削除
 genre-empty = ここにはまだ何もありません
 search-best-match = ベストマッチ
 search-no-matches = 一致する項目がありません
