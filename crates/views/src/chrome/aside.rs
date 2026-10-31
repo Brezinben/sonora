@@ -152,6 +152,8 @@ struct RowLook {
     queued: bool,
     /// Whether the row is on another device's queue, which this app shows but cannot change.
     remote: bool,
+    /// Whether the provider mixed the song in as a recommendation.
+    recommended: bool,
 }
 
 /// The credit under a sheet, resolved once for the answer it names and the language it was read
@@ -656,6 +658,7 @@ impl Aside {
             drop_line,
             queued,
             remote,
+            recommended,
         } = look;
         let theme = *cx.theme();
         let queue_index = position.upcoming().filter(|_| !remote);
@@ -720,6 +723,7 @@ impl Aside {
         )
         .tint(title)
         .when(track.explicit, Card::explicit)
+        .when(recommended, Card::recommended)
         .when(!remote || current, |card| {
             card.play(
                 playing,
@@ -1924,6 +1928,7 @@ impl Aside {
                             drop_line,
                             queued: sections.kind(position) == Some(state::QueueKind::Queued),
                             remote,
+                            recommended: listing.recommended(position, cx),
                         };
                         let place = track_place(&sections, position);
                         Self::row(track, index, position, revision, look, place, cx)

@@ -70,6 +70,8 @@ struct Entry {
     track: Rc<Track>,
     origin: Option<Origin>,
     kind: QueueKind,
+    /// Whether the provider mixed the song in as a recommendation, as smart shuffle does.
+    recommended: bool,
 }
 
 /// Where fetched tracks go in the queue.
@@ -143,6 +145,7 @@ impl Entry {
             track: Rc::new(track),
             origin,
             kind,
+            recommended: false,
         }
     }
 
@@ -684,6 +687,11 @@ impl Queue {
         self.entry(position).map(|entry| entry.kind)
     }
 
+    /// Whether the provider mixed the song at `position` in as a recommendation.
+    pub fn recommended(&self, position: QueuePosition) -> bool {
+        self.entry(position).is_some_and(|entry| entry.recommended)
+    }
+
     fn entry(&self, position: QueuePosition) -> Option<&Entry> {
         match position {
             QueuePosition::Past(at) => self.past.get(at),
@@ -878,9 +886,9 @@ impl Queue {
     /// and so do the suggestions, which are never reported.
     pub(crate) fn replace_remote(
         &mut self,
-        past: Vec<(Track, bool)>,
-        current: bool,
-        upcoming: Vec<(Track, bool)>,
+        past: Vec<(Track, QueuedTrack)>,
+        current: Option<QueuedTrack>,
+        upcoming: Vec<(Track, QueuedTrack)>,
         reach: Reach,
         cx: &mut Context<Self>,
     ) {
@@ -938,17 +946,20 @@ impl Queue {
         let mut entries: Vec<_> = past
             .into_iter()
             .chain(upcoming)
-            .map(|(track, queued)| {
-                let kind = match queued {
+            .map(|(track, listed)| {
+                let kind = match listed.queued {
                     true => QueueKind::Queued,
                     false => QueueKind::Context,
                 };
-                Entry::with_uid(
-                    identity(&track),
-                    track,
-                    (!queued).then(|| origin.clone()).flatten(),
-                    kind,
-                )
+                Entry {
+                    recommended: listed.recommended,
+                    ..Entry::with_uid(
+                        identity(&track),
+                        track,
+                        (!listed.queued).then(|| origin.clone()).flatten(),
+                        kind,
+                    )
+                }
             })
             .collect();
         let window: Vec<_> = entries.split_off(past_len);
@@ -964,10 +975,11 @@ impl Queue {
             .chain(suggested)
             .collect();
         if let Some(entry) = self.current.as_mut() {
-            entry.kind = match current {
+            entry.kind = match current.as_ref().is_some_and(|listed| listed.queued) {
                 true => QueueKind::Queued,
                 false => QueueKind::Context,
             };
+            entry.recommended = current.is_some_and(|listed| listed.recommended);
         }
         let queued: HashSet<_> = self
             .past
@@ -1316,6 +1328,7 @@ fn connect_entry(entry: &Entry) -> Option<QueuedTrack> {
         id: id.to_owned(),
         uid: entry.uid.clone(),
         queued: entry.kind == QueueKind::Queued,
+        recommended: entry.recommended,
         added_by: entry
             .track
             .added_by
@@ -1367,6 +1380,7 @@ mod tests {
             track: Rc::new(track(id)),
             origin: None,
             kind: super::QueueKind::Context,
+            recommended: false,
         }
     }
 
