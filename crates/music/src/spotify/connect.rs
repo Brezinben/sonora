@@ -1204,13 +1204,13 @@ impl Worker {
                 return;
             }
         };
-        let recommended = &self
-            .smart
-            .insert(Enhanced {
-                context: uri.clone(),
-                recommended,
-            })
-            .recommended;
+        self.smart = Some(Enhanced {
+            context: uri.clone(),
+            recommended,
+        });
+        let Some(Enhanced { recommended, .. }) = &self.smart else {
+            return;
+        };
         if let Some(mut play) = play {
             play.context.pages = context.pages;
             let start = started_by_play(&play, Some(recommended));
