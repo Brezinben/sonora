@@ -22,6 +22,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The translucent player bar no longer looks much darker than the rest of a see-through window.
 - Covers saved for the system media controls no longer fill Sonora's cache folder without limit,
   and playlist mosaics no longer leave old copies behind.
+- Smart shuffle from the Spotify app now plays its recommended songs on Sonora through Spotify
+  Connect, and stays on when you switch it on while Sonora plays.
 
 ## [0.45.0] - 2026-10-27
 
