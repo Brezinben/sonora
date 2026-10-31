@@ -7,7 +7,6 @@ use gpui::{
     svg,
 };
 
-use crate::ExplicitBadge;
 use crate::artwork::cover_palette;
 use crate::artwork::{Artwork, Avatar, ROUNDED};
 use crate::button::Button;
@@ -17,6 +16,7 @@ use crate::metrics::{LEADING, Text, snapped};
 use crate::skeleton::Skeleton;
 use crate::theme::ActiveTheme as _;
 use crate::tooltip::{Perch, Tipped as _};
+use crate::{ExplicitBadge, Sparkle};
 
 const BAR_TITLE: (Pixels, Pixels) = (px(140.), px(11.));
 const BAR_META: (Pixels, Pixels) = (px(90.), px(9.));
@@ -54,6 +54,7 @@ pub struct Card {
     circle: bool,
     tint: Option<Hsla>,
     explicit: bool,
+    recommended: bool,
     fill: bool,
     hovered: Option<StyleRefinement>,
     press: Option<Press>,
@@ -89,6 +90,7 @@ impl Card {
             circle: false,
             tint: None,
             explicit: false,
+            recommended: false,
             fill: true,
             hovered: None,
             press: None,
@@ -224,6 +226,12 @@ impl Card {
         self
     }
 
+    /// Puts a sparkle ahead of the title, for a song the provider mixed in as a recommendation.
+    pub fn recommended(mut self) -> Self {
+        self.recommended = true;
+        self
+    }
+
     pub fn trailing(mut self, trailing: impl IntoElement) -> Self {
         self.trailing = Some(trailing.into_any_element());
         self
@@ -297,6 +305,7 @@ impl RenderOnce for Card {
             circle,
             tint,
             explicit,
+            recommended,
             fill,
             hovered,
             press,
@@ -465,15 +474,18 @@ impl RenderOnce for Card {
             .text_color(tint.unwrap_or(theme.foreground))
             .when_some(size, |this, size| this.text_size(theme.text(size)))
             .child(title);
-        let heading = match explicit {
+        let heading = match explicit || recommended {
             false => title.into_any_element(),
             true => div()
                 .flex()
                 .items_center()
                 .gap(px(3.))
                 .min_w_0()
+                .when(recommended, |this| this.child(Sparkle::new()))
                 .child(title)
-                .child(div().flex_none().child(ExplicitBadge::new()))
+                .when(explicit, |this| {
+                    this.child(div().flex_none().child(ExplicitBadge::new()))
+                })
                 .into_any_element(),
         };
         let caption = meta.map(|meta| match bare {

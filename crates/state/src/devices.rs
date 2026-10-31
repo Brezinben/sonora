@@ -28,7 +28,11 @@ const REMOTE_TRACKS: usize = 25;
 /// How often the views are told that another device's playback moved on while it plays.
 const TICK: Duration = Duration::from_millis(500);
 /// The actual history and upcoming order supplied by another device.
-type RemoteWindow = (Vec<(Track, QueuedTrack)>, bool, Vec<(Track, QueuedTrack)>);
+type RemoteWindow = (
+    Vec<(Track, QueuedTrack)>,
+    Option<QueuedTrack>,
+    Vec<(Track, QueuedTrack)>,
+);
 
 /// The provider's device network as the app sees it: this app listed as a device, playback
 /// reported to the account's other apps, their commands carried out, and the account's other
@@ -1191,11 +1195,7 @@ async fn load(
             .zip(&start.upcoming)
             .filter_map(|(track, listed)| Some((track?, listed.clone())))
             .collect();
-        (
-            past,
-            start.track.as_ref().is_some_and(|track| track.queued),
-            next,
-        )
+        (past, start.track.clone(), next)
     });
 
     Ok((tracks, index, origin, window))

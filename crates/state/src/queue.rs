@@ -887,7 +887,7 @@ impl Queue {
     pub(crate) fn replace_remote(
         &mut self,
         past: Vec<(Track, QueuedTrack)>,
-        current: bool,
+        current: Option<QueuedTrack>,
         upcoming: Vec<(Track, QueuedTrack)>,
         reach: Reach,
         cx: &mut Context<Self>,
@@ -975,10 +975,11 @@ impl Queue {
             .chain(suggested)
             .collect();
         if let Some(entry) = self.current.as_mut() {
-            entry.kind = match current {
+            entry.kind = match current.as_ref().is_some_and(|listed| listed.queued) {
                 true => QueueKind::Queued,
                 false => QueueKind::Context,
             };
+            entry.recommended = current.is_some_and(|listed| listed.recommended);
         }
         let queued: HashSet<_> = self
             .past

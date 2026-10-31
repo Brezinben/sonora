@@ -684,15 +684,6 @@ impl Aside {
                 .items_center()
                 .gap_1()
                 .min_w_0()
-                .when(recommended, |this| {
-                    this.child(
-                        svg()
-                            .path(icons::path("icons/sparkles.svg"))
-                            .flex_none()
-                            .size(theme.text(Text::Small))
-                            .text_color(theme.primary),
-                    )
-                })
                 .child(
                     crate::shared::cells::artist_links(
                         SharedString::from(format!("queue-track-artist-{index}")),
@@ -713,6 +704,7 @@ impl Aside {
         )
         .tint(title)
         .when(track.explicit, Card::explicit)
+        .when(recommended, Card::recommended)
         .when(!remote || current, |card| {
             card.play(
                 playing,

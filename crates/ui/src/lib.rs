@@ -43,6 +43,7 @@ mod scrubber;
 mod separator;
 mod shield;
 mod skeleton;
+mod sparkle;
 mod spinner;
 mod switch;
 mod table;
@@ -125,6 +126,7 @@ pub use scrubber::{Scrubber, ScrubberState};
 pub use separator::Separator;
 pub use shield::Shield;
 pub use skeleton::{Initials, Skeleton};
+pub use sparkle::Sparkle;
 pub use spinner::{Spin, Spinner};
 pub use switch::Switch;
 pub use table::{

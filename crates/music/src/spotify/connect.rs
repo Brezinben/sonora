@@ -136,6 +136,9 @@ type Subscriptions = SelectAll<BoxedStreamResult<Incoming>>;
 struct Enhanced {
     context: String,
     recommended: HashSet<String>,
+    /// Where each song sits in the enhanced collection, and its uid there. A device taking over
+    /// loads that collection and finds the track by these, not by its place in the plain one.
+    places: HashMap<String, (u32, String)>,
 }
 
 /// A smart shuffle collection read for a command, handed back to the worker so that it applies
@@ -879,11 +882,16 @@ impl Worker {
             .collect();
         let smart = self.smart.as_ref().filter(|smart| smart.context == uri);
         if let Some(smart) = smart {
-            for track in state.prev_tracks.iter_mut().chain(&mut state.next_tracks) {
-                let recommended =
-                    track_id(&track.uri).is_some_and(|id| smart.recommended.contains(&id));
-                if recommended && track.provider == "context" {
+            let tracks = state.prev_tracks.iter_mut().chain(state.track.as_mut());
+            for track in tracks.chain(&mut state.next_tracks) {
+                let Some(id) = track_id(&track.uri) else {
+                    continue;
+                };
+                if smart.recommended.contains(&id) && track.provider == "context" {
                     track.provider = RECOMMENDED.to_owned();
+                }
+                if let Some((_, uid)) = smart.places.get(&id) {
+                    track.uid = uid.clone();
                 }
             }
         }
@@ -893,8 +901,12 @@ impl Worker {
         };
         state.context_uri = uri;
         // a device taking over finds the track by where it sits as well as by its uri
-        state.index = MessageField::from_option(now.index.map(|track| ContextIndex {
-            track: track as u32,
+        let index = match smart {
+            Some(smart) => smart.places.get(&track.id).map(|(at, _)| *at),
+            None => now.index.map(|at| at as u32),
+        };
+        state.index = MessageField::from_option(index.map(|track| ContextIndex {
+            track,
             ..Default::default()
         }));
         state.timestamp =
@@ -1206,6 +1218,7 @@ impl Worker {
         };
         self.smart = Some(Enhanced {
             context: uri.clone(),
+            places: places(&context),
             recommended,
         });
         let Some(Enhanced { recommended, .. }) = &self.smart else {
@@ -2136,6 +2149,7 @@ fn transferred_smart(state: &TransferState) -> Option<Enhanced> {
     Some(Enhanced {
         context,
         recommended,
+        places: places(&state.current_session.context),
     })
 }
 
@@ -2172,6 +2186,19 @@ fn ids(context: &Context) -> impl Iterator<Item = String> + '_ {
         .iter()
         .flat_map(|page| &page.tracks)
         .filter_map(listed_id)
+}
+
+/// Where each song first sits in a collection, counting every entry, and its uid there.
+fn places(context: &Context) -> HashMap<String, (u32, String)> {
+    let mut places = HashMap::new();
+    let tracks = context.pages.iter().flat_map(|page| &page.tracks);
+    for (at, track) in tracks.enumerate() {
+        if let Some(id) = listed_id(track) {
+            let uid = track.uid.clone().unwrap_or_default();
+            places.entry(id).or_insert((at as u32, uid));
+        }
+    }
+    places
 }
 
 fn recommended(context: &Context) -> impl Iterator<Item = String> + '_ {

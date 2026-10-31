@@ -15,10 +15,10 @@ use gpui::{
 use gpui::{Window, canvas, div, point, px};
 use i18n::t;
 use input::{ToggleFullscreen, ToggleLyrics, ToggleQueue};
-use state::{AppSettings, Playback, PlayerBarLayout, Queue, SideTab, Sonora};
+use state::{AppSettings, Playback, PlayerBarLayout, Queue, QueuePosition, SideTab, Sonora};
 use ui::{
     Artwork, Button, ExplicitBadge, HoverFade, InlineLink, InlineLinks, Motion, Popup, Room,
-    Scrollbar, Scrubber, ScrubberState, clock, tabular,
+    Scrollbar, Scrubber, ScrubberState, Sparkle, clock, tabular,
 };
 
 use crate::chrome::devices::DevicePicker;
@@ -341,6 +341,10 @@ impl PlayerBar {
         let shown = self.playback.read(cx).shown_track(cx);
         let track = shown.as_ref();
         let explicit = track.is_some_and(|track| track.explicit);
+        let recommended = Sonora::global(cx)
+            .queue
+            .read(cx)
+            .recommended(QueuePosition::Current);
         let title = match track {
             Some(track) => div()
                 .id("now-playing-track")
@@ -394,8 +398,10 @@ impl PlayerBar {
                         .relative()
                         .flex()
                         .items_center()
+                        .gap_1()
                         .min_w_0()
                         .min_h(theme.text(ui::Text::Body) * ui::LEADING)
+                        .when(recommended, |this| this.child(Sparkle::new()))
                         .child(title)
                         .child(
                             actions
@@ -413,6 +419,7 @@ impl PlayerBar {
                 .min_w_0()
                 .items_center()
                 .gap_1()
+                .when(recommended, |this| this.child(Sparkle::new()))
                 .child(title)
                 .child(actions),
         };
