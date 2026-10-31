@@ -430,6 +430,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Schnellauswahl
 home-quick-picks-empty = Markiere ein paar Songs als Favoriten, dann erscheinen sie hier
 home-recently-added = Kürzlich hinzugefügt
+home-recently-played = Kürzlich gespielt
 home-playlists = Playlists
 home-favorite-albums = Lieblingsalben
 home-artists = Künstler

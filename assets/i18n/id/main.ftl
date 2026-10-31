@@ -430,6 +430,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Pilihan cepat
 home-quick-picks-empty = Sukai beberapa lagu dan rekomendasinya akan muncul di sini
 home-recently-added = Baru ditambahkan
+home-recently-played = Baru diputar
 home-playlists = Playlist
 home-favorite-albums = Album favorit
 home-artists = Artis
