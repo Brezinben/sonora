@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-10-31
+
 ### Added
 
 - Control Sonora from a terminal or a script: `sonora toggle`, `next`, `current`, `search`,
@@ -26,6 +28,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Hover one and press its cross to remove it.
 - Categories in Search show a cover on Apple Music, YouTube Music and Subsonic servers too.
 - Install a theme from sonorahq.org/themes together with all its variants, such as light and dark.
+- Change or remove the cover of a playlist you own from its new edit dialog, on Spotify, YouTube
+  Music, Deezer, Tidal, Navidrome 0.61 or later and local files.
+- Deezer's Home shows every section the Deezer web player shows, and its mixes, flows and
+  channels open in Sonora.
 
 ### Changed
 
@@ -38,13 +44,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   playlists Apple made for you.
 - The lyrics source you rank higher now wins whenever it has synced lyrics, even when a source
   below it has them word by word.
+- Notices, such as the one about a missing audio output, line their text and buttons up beside
+  the icon, with the close button in the corner.
 
 ### Fixed
 
 - Screen readers now read setting labels and their values, the streaming services list, track rows,
   lyrics, the queue, page headings and empty pages, and say which option is chosen, expanded or
   playing. Every switch, dropdown, slider and window button has a name.
-- The translucent player bar no longer looks much darker than the rest of a see-through window.
+- The translucent player bar and table headers no longer look much darker than the rest of a
+  see-through window.
+- Saving a Deezer album to your favorites, or removing it, no longer fails.
+- Toasts show above an open dialog instead of behind it.
+- Fullscreen lyrics over the ambient background stay readable with a theme from your themes
+  folder, whose colours no longer apply there.
 - Covers saved for the system media controls no longer fill Sonora's cache folder without limit,
   and playlist mosaics no longer leave old copies behind.
 - Fullscreen shows Spotify covers at their original resolution, up to 2000 pixels, instead of
@@ -2419,7 +2432,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial release: a native Spotify client with playback, an interactive queue, the saved library,
 search, album, playlist, artist and song pages, context menus and adaptive theming.
 
-[unreleased]: https://github.com/sonorahq/sonora/compare/v0.45.0...HEAD
+[unreleased]: https://github.com/sonorahq/sonora/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/sonorahq/sonora/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/sonorahq/sonora/compare/v0.44.2...v0.45.0
 [0.44.2]: https://github.com/sonorahq/sonora/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/sonorahq/sonora/compare/v0.44.0...v0.44.1
