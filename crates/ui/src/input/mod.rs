@@ -637,7 +637,8 @@ impl Input {
     /// Inserts pasted `text` over the selection, flattening newlines since the field holds one
     /// line.
     fn insert_pasted(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.replace_text_in_range(None, &text.replace('\n', " "), window, cx);
+        let flat = text.replace("\r\n", " ").replace(['\r', '\n'], " ");
+        self.replace_text_in_range(None, &flat, window, cx);
     }
 
     fn show_character_palette(
