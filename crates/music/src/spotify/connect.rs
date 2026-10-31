@@ -5,8 +5,8 @@
 //! librespot's own `Spirc` does the same but wants to own the queue, so this speaks the same
 //! protocol straight through the session's dealer and spclient and leaves the queue to Sonora.
 
-use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash as _, Hasher as _};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -48,6 +48,7 @@ use crate::connect::{
 
 const DEVICE_NAME: &str = "Sonora";
 const TRACK_PREFIX: &str = "spotify:track:";
+const PLAYLIST_PREFIX: &str = "spotify:playlist:";
 /// The context a state names when it has none, which Spotify needs to see to keep the device
 /// active.
 const UNKNOWN_CONTEXT: &str = "spotify:unknown";
@@ -223,6 +224,9 @@ struct Worker {
     /// Last queue published by another active device, retained across a transfer here.
     remote_queue: Option<(Arc<Snapshot>, Instant)>,
     smart: Option<Enhanced>,
+    /// Whether the listener switched smart shuffle on for this device. A phone sets it once and
+    /// then sends plain play commands, which this mode turns into smart shuffle ones.
+    smart_mode: bool,
     /// Counts the commands that change what plays, so a read made for an older one is dropped.
     ticket: u64,
     /// The reason of a put that is due but held back, and when it may go out.
@@ -257,6 +261,7 @@ impl Worker {
             active_device: String::new(),
             remote_queue: None,
             smart: None,
+            smart_mode: false,
             ticket: 0,
             pending: None,
             flush_at: None,
@@ -899,8 +904,9 @@ impl Worker {
             shuffling_context: now.shuffle.unwrap_or_default(),
             repeating_context: now.repeat == Some(Repeat::All),
             repeating_track: now.repeat == Some(Repeat::One),
-            modes: smart
-                .map(|_| (ENHANCEMENT.to_owned(), RECOMMENDATION.to_owned()))
+            modes: self
+                .smart_mode
+                .then(|| (ENHANCEMENT.to_owned(), RECOMMENDATION.to_owned()))
                 .into_iter()
                 .collect(),
             ..Default::default()
@@ -956,6 +962,7 @@ impl Worker {
     /// Uses a matching fresh player report to preserve queue order that transfer contexts can omit.
     fn transferred(&mut self, state: TransferState) -> Start {
         self.ticket += 1;
+        self.smart_mode = recommends(&state.options.modes);
         self.smart = transferred_smart(&state);
         let now =
             (unix_millis() as i64).saturating_add(self.session.time_delta().saturating_mul(1000));
@@ -1067,7 +1074,7 @@ impl Worker {
     /// sends no tracks along, so the playlist is read back first to find which song that is.
     fn play(&mut self, play: PlayCommand) {
         self.ticket += 1;
-        match smart_shuffled(&play) {
+        match smart_shuffled(&play, self.smart_mode) {
             Some(uri) => self.read_enhanced(uri, Some(Box::new(play))),
             None => {
                 self.smart = None;
@@ -1112,16 +1119,27 @@ impl Worker {
     /// Switches smart shuffle for what plays now. The controller names the collection with the
     /// lens to switch it on, and without it to switch it off.
     fn update_context(&mut self, context: Context) {
+        let Some(now) = &self.now else {
+            return;
+        };
+        if context.uri != self.playing(now) {
+            return log::debug!("connect: a context update names another collection");
+        }
+        self.switch_smart(context.url.is_some_and(|url| url.ends_with(LENS)));
+    }
+
+    /// Switches smart shuffle for this device, and for the playlist that plays now.
+    fn switch_smart(&mut self, on: bool) {
+        self.smart_mode = on;
         let Some(now) = self.now.clone() else {
             return;
         };
-        let Some(uri) = context
-            .uri
-            .filter(|uri| Some(uri) == self.playing(&now).as_ref())
+        let Some(uri) = self
+            .playing(&now)
+            .filter(|uri| uri.starts_with(PLAYLIST_PREFIX))
         else {
-            return log::debug!("connect: a context update names another collection");
+            return;
         };
-        let on = context.url.is_some_and(|url| url.ends_with(LENS));
         if on
             && self
                 .smart
@@ -1257,6 +1275,15 @@ impl Worker {
                 vec![Command::Repeat(self.repeat(None, Some(set.value)))]
             }
             Wire::SetOptions(options) => {
+                let mode = options.modes.as_ref().map(recommends);
+                // smart shuffle is a kind of shuffle, so shuffle off switches it off too
+                let unshuffled = options.shuffling_context == Some(false);
+                if let Some(on) = mode
+                    .map(|on| on && !unshuffled)
+                    .or(unshuffled.then_some(false))
+                {
+                    self.switch_smart(on);
+                }
                 let mut commands = Vec::new();
                 if let Some(on) = options.shuffling_context {
                     commands.push(Command::Shuffle(on));
@@ -2066,28 +2093,35 @@ fn collection_item(bytes: &[u8]) -> protobuf::Result<Option<Event>> {
 }
 
 /// The playlist a play command asks smart shuffle for, if it does.
-fn smart_shuffled(play: &PlayCommand) -> Option<String> {
+/// `mode` is the smart shuffle mode of this device, which applies to a play command that does not
+/// name it.
+fn smart_shuffled(play: &PlayCommand, mode: bool) -> Option<String> {
     let lens = play
         .context
         .url
         .as_deref()
         .is_some_and(|url| url.ends_with(LENS));
-    let mode = play
-        .options
-        .player_options_override
-        .as_ref()
-        .and_then(|options| options.modes.get(ENHANCEMENT))
-        .is_some_and(|mode| mode == RECOMMENDATION);
+    let mode = mode
+        || play
+            .options
+            .player_options_override
+            .as_ref()
+            .is_some_and(|options| recommends(&options.modes));
     // shortcut: playlists only, as smart shuffle is offered there; extend once albums show it
     play.context
         .uri
         .clone()
-        .filter(|uri| (lens || mode) && uri.starts_with("spotify:playlist:"))
+        .filter(|uri| (lens || mode) && uri.starts_with(PLAYLIST_PREFIX))
+}
+
+/// Whether player modes say smart shuffle is on.
+fn recommends(modes: &HashMap<String, String>) -> bool {
+    modes.get(ENHANCEMENT).map(String::as_str) == Some(RECOMMENDATION)
 }
 
 /// Smart shuffle as a transfer hands it over, with the songs it already mixed in.
 fn transferred_smart(state: &TransferState) -> Option<Enhanced> {
-    let on = state.options.modes.get(ENHANCEMENT).map(String::as_str) == Some(RECOMMENDATION);
+    let on = recommends(&state.options.modes);
     let context = state.current_session.context.uri.clone().filter(|_| on)?;
     let recommended = recommended(&state.current_session.context).collect();
     Some(Enhanced {
