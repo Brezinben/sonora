@@ -410,6 +410,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Hızlı seçimler
 home-quick-picks-empty = Birkaç şarkı beğen, burada görünsünler
 home-recently-added = Son eklenenler
+home-recently-played = Son çalınanlar
 home-playlists = Çalma listeleri
 home-favorite-albums = Favori albümler
 home-artists = Sanatçılar

@@ -430,6 +430,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Zgjedhje të shpejta
 home-quick-picks-empty = Pëlqe disa këngë dhe ato do të shfaqen këtu
 home-recently-added = Shtuar së fundi
+home-recently-played = Luajtur së fundi
 home-playlists = Lista luajtjeje
 home-favorite-albums = Albumet e preferuara
 home-artists = Artistë

@@ -457,6 +457,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Rychlý výběr
 home-quick-picks-empty = Označ pár skladeb jako oblíbené a objeví se tady
 home-recently-added = Nedávno přidané
+home-recently-played = Nedávno přehrávané
 home-playlists = Playlisty
 home-favorite-albums = Oblíbená alba
 home-artists = Interpreti

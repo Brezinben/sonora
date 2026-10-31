@@ -385,6 +385,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = クイックピック
 home-quick-picks-empty = 何曲かお気に入りに追加するとここに表示されます
 home-recently-added = 最近追加した項目
+home-recently-played = 最近再生した項目
 home-playlists = プレイリスト
 home-favorite-albums = お気に入りのアルバム
 home-artists = アーティスト

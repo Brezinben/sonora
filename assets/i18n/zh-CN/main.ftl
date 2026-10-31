@@ -430,6 +430,7 @@ release-meta = { $year } • { $kind }
 home-quick-picks = 快速推荐
 home-quick-picks-empty = 收藏几首歌后，它们会显示在这里
 home-recently-added = 最近添加
+home-recently-played = 最近播放
 home-playlists = 播放列表
 home-favorite-albums = 收藏的专辑
 home-artists = 歌手

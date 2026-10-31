@@ -32,6 +32,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Best match is no longer repeated in the lists below it, and the arrow keys stop on it.
 - Search results fade out under the search field as they scroll instead of being cut off.
 - Quick picks on Home no longer shows your account name above its title.
+- Apple Music's Home leads with Recently played again, and Recently added sits below the
+  playlists Apple made for you.
 - The lyrics source you rank higher now wins whenever it has synced lyrics, even when a source
   below it has them word by word.
 
