@@ -979,7 +979,7 @@ impl Worker {
         self.smart = transferred_smart(&state);
         let now =
             (unix_millis() as i64).saturating_add(self.session.time_delta().saturating_mul(1000));
-        let start = started_by_transfer(state, now);
+        let start = marked(started_by_transfer(state, now), self.smart.as_ref());
         if let Some((queue, stamp)) = &self.remote_queue {
             let matching_context = start
                 .state
@@ -1868,6 +1868,23 @@ fn collection(uri: &str) -> Option<Collection> {
         }
         ["spotify", "user", _, "collection"] => Some(Collection::Saved),
         _ => None,
+    }
+}
+
+/// Marks the songs of a transferred start that smart shuffle recommended, since a transfer lists
+/// its songs without the provider that says so.
+fn marked(start: Start, smart: Option<&Enhanced>) -> Start {
+    let Some(smart) = smart else {
+        return start;
+    };
+    let mut state = (*start.state).clone();
+    let tracks = state.previous.iter_mut().chain(state.track.as_mut());
+    for track in tracks.chain(&mut state.upcoming) {
+        track.recommended |= smart.recommended.contains(&track.id);
+    }
+    Start {
+        state: Arc::new(state),
+        ..start
     }
 }
 

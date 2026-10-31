@@ -287,19 +287,29 @@ impl Devices {
 
     /// Addresses the provider's queue through its metadata cache without copying the play order.
     pub(crate) fn queue_tracks(&self, position: QueuePosition) -> Option<Track> {
+        let listed = self.queue_row(position)?;
+        let mut track = self.listed.get(&listed.id)?.clone();
+        track.added_by = listed.added_by.as_deref().and_then(|id| self.known(id));
+        Some(track)
+    }
+
+    /// Whether the provider mixed the remote queue's song at `position` in as a recommendation.
+    pub(crate) fn queue_recommended(&self, position: QueuePosition) -> bool {
+        self.queue_row(position)
+            .is_some_and(|listed| listed.recommended)
+    }
+
+    fn queue_row(&self, position: QueuePosition) -> Option<&QueuedTrack> {
         let remote = &self.elsewhere()?.state;
-        let listed = match position {
+        match position {
             QueuePosition::Past(at) => remote
                 .previous
                 .iter()
                 .filter(|row| self.readable(&row.id))
-                .nth(at)?,
-            QueuePosition::Current => remote.track.as_ref()?,
-            QueuePosition::Upcoming(at) => remote.upcoming.get(at)?,
-        };
-        let mut track = self.listed.get(&listed.id)?.clone();
-        track.added_by = listed.added_by.as_deref().and_then(|id| self.known(id));
-        Some(track)
+                .nth(at),
+            QueuePosition::Current => remote.track.as_ref(),
+            QueuePosition::Upcoming(at) => remote.upcoming.get(at),
+        }
     }
 
     /// Counts readable rows, stopping upcoming at the first gap so Next never names a later song.

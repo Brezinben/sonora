@@ -152,6 +152,8 @@ struct RowLook {
     queued: bool,
     /// Whether the row is on another device's queue, which this app shows but cannot change.
     remote: bool,
+    /// Whether the provider mixed the song in as a recommendation.
+    recommended: bool,
 }
 
 /// The credit under a sheet, resolved once for the answer it names and the language it was read
@@ -656,12 +658,15 @@ impl Aside {
             drop_line,
             queued,
             remote,
+            recommended,
         } = look;
         let theme = *cx.theme();
         let queue_index = position.upcoming().filter(|_| !remote);
-        let queue = Sonora::global(cx).queue.read(cx);
-        let uid = queue.uid(position).map(str::to_owned);
-        let recommended = queue.recommended(position);
+        let uid = Sonora::global(cx)
+            .queue
+            .read(cx)
+            .uid(position)
+            .map(str::to_owned);
         let play_uid = uid.clone();
         let press_uid = uid.clone();
         let current = position == QueuePosition::Current;
@@ -1885,6 +1890,7 @@ impl Aside {
                             drop_line,
                             queued: sections.kind(position) == Some(state::QueueKind::Queued),
                             remote,
+                            recommended: listing.recommended(position, cx),
                         };
                         Self::row(track, index, position, revision, look, sections.len(), cx)
                             .into_any_element()
