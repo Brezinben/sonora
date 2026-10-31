@@ -88,6 +88,12 @@ fn primary_paste() -> bool {
     PRIMARY_SELECTION && PRIMARY_PASTE.load(Ordering::Relaxed)
 }
 
+/// `text` on one line: every line break, `\r\n`, `\r` or `\n`, becomes one space. A field
+/// holds one line, and Windows copies `\r\n`.
+pub fn single_line(text: &str) -> String {
+    text.replace("\r\n", " ").replace(['\r', '\n'], " ")
+}
+
 fn clamp_offset(text: &str, offset: usize) -> usize {
     let mut offset = offset.min(text.len());
     while !text.is_char_boundary(offset) {
@@ -637,8 +643,7 @@ impl Input {
     /// Inserts pasted `text` over the selection, flattening newlines since the field holds one
     /// line.
     fn insert_pasted(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let flat = text.replace("\r\n", " ").replace(['\r', '\n'], " ");
-        self.replace_text_in_range(None, &flat, window, cx);
+        self.replace_text_in_range(None, &single_line(text), window, cx);
     }
 
     fn show_character_palette(
