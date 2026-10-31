@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
-use gpui::accesskit::Role;
+use gpui::accesskit::{Role, Toggled};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Div, ElementId, SharedString, Window, div};
-use ui::{ActiveTheme as _, Button, Room, TabBar};
+use ui::{ActiveTheme as _, Button, OptionCard, Room, TabBar};
 
 use super::SettingsView;
 
@@ -70,12 +70,11 @@ impl RenderOnce for Row {
                     .flex_col()
                     .gap_1()
                     .child(
-                        div()
-                            .id(SharedString::from(format!("settings-row-{title}")))
-                            .role(Role::Label)
-                            .aria_label(title.clone())
-                            .truncate()
-                            .child(title.clone()),
+                        ui::spoken(
+                            SharedString::from(format!("settings-row-{title}")),
+                            title.clone(),
+                        )
+                        .truncate(),
                     )
                     .children(detail.map(|detail| {
                         div()
@@ -109,6 +108,22 @@ impl SettingsView {
             .into_any_element()
     }
 }
+
+/// What an option card says to screen readers. The card draws its name but puts nothing in the
+/// accessibility tree by itself, so each settings page announces its cards through this.
+pub(super) trait Announced: StatefulInteractiveElement + Sized {
+    /// Announces the card as the radio button at `place` among `count` options, named `name`
+    /// and checked while `chosen`.
+    fn choice(self, name: SharedString, chosen: bool, place: usize, count: usize) -> Self {
+        self.role(Role::RadioButton)
+            .aria_label(name)
+            .aria_toggled(Toggled::from(chosen))
+            .aria_position_in_set(place + 1)
+            .aria_size_of_set(count)
+    }
+}
+
+impl Announced for OptionCard {}
 
 /// A choice between a few options as one segmented control, each option a segment with its
 /// label and the `chosen` one lit. `pick` hears the option a click lands on.

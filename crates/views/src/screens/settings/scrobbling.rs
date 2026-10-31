@@ -111,12 +111,14 @@ impl SettingsView {
             .items_center()
             .gap_3()
             .children(status.map(|status| {
-                div()
-                    .max_w(theme.metrics.cover * 1.5)
-                    .truncate()
-                    .text_size(theme.text(Text::Label))
-                    .text_color(theme.muted_foreground)
-                    .child(status)
+                ui::spoken(
+                    SharedString::from(format!("scrobble-status-{service}")),
+                    status,
+                )
+                .max_w(theme.metrics.cover * 1.5)
+                .truncate()
+                .text_size(theme.text(Text::Label))
+                .text_color(theme.muted_foreground)
             }))
             .child(action);
         self.row(title, control.into_any_element())

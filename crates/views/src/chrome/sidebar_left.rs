@@ -10,17 +10,21 @@ use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, DragMoveEvent, ElementId, Entity, MouseButton, MouseDownEvent,
-    Pixels, Point, Render, ScrollHandle, svg,
+    Pixels, Point, Render, ScrollHandle, SharedString, svg,
 };
 use gpui::{Window, div, px};
+use music::Shape;
 use router::{
     Destination, LibraryTab, NavEntry, Navigation, NavigationEvent, SettingsPage, navigate,
     open_settings,
 };
-use state::{AppSettings, Library, Origin, PinSort, Pins, Playback, Session, Shelf, Sonora};
+use state::{
+    AppSettings, Leaving, Library, Origin, PinSort, Pins, Playback, Session, Shelf, Sonora,
+};
 
 use crate::shared::menus::{ItemMenu, item_menu};
 use crate::shared::nav::nav_row;
+use crate::shared::pins::leaving;
 use crate::shared::playlist_editor::{Edit, PlaylistEditor};
 
 /// The one drag list the pinned section keeps, so a pin dropped anywhere in it lands in order.
@@ -500,7 +504,9 @@ impl SidebarLeft {
         let origin = Origin::from(&pin);
         let playing = self.playback.read(cx).playing_from(&origin, cx) == Some(true);
 
-        let card = Card::new(("pinned", index), pin.label())
+        let key = format!("{}-{}", pin.kind.key(), pin.id);
+        let card = Card::new(SharedString::from(format!("pinned-{key}")), pin.label())
+            .aria_description(i18n::lookup(pin.kind.key(), None))
             .cover(pin.cover.clone())
             .fallback(pin.kind.icon())
             .when(pin.kind.round(), Card::circle)
@@ -557,7 +563,7 @@ impl SidebarLeft {
             );
 
         div()
-            .id(("pinned-slot", index))
+            .id(SharedString::from(format!("pinned-slot-{key}")))
             .role(Role::ListItem)
             .aria_position_in_set(index + 1)
             .aria_size_of_set(total)
@@ -592,12 +598,13 @@ impl SidebarLeft {
         match group {
             Some(group) => row
                 .trailing(chevron(self.opened(group)))
+                .aria_expanded(self.opened(group))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.flip(group);
                     cx.notify();
                 })),
             None => row
-                .when(active, |button| button.bg(accent))
+                .when(active, |button| button.bg(accent).aria_selected(true))
                 .on_click(move |_, _, cx| match destination.in_settings() {
                     true => open_settings(cx),
                     false => navigate(destination.clone(), cx),
@@ -620,7 +627,7 @@ impl SidebarLeft {
 
             nav_row(id, key, tint, accent)
                 .flex_1()
-                .when(chosen, |button| button.bg(accent))
+                .when(chosen, |button| button.bg(accent).aria_selected(true))
                 .on_click(move |_, _, cx| navigate(destination.clone(), cx))
         };
 
@@ -649,17 +656,46 @@ impl SidebarLeft {
     }
 
     /// Adds a dropped song to a playlist, and asks first when the playlist holds the song already.
+    /// Shift held on the drop moves the song instead.
     fn add_into(&self, target: &Pin, song: &Pin, window: &mut Window, cx: &mut Context<Self>) {
         let library = self.library.read(cx);
         let Some(playlist) = library.playlist(&target.id).cloned() else {
             return;
         };
         let track = song.id.clone();
+        let leaving = window
+            .modifiers()
+            .shift
+            .then(|| self.leaves(song, &playlist.id, cx))
+            .flatten();
         match library.holds(&playlist.id, &track) == Some(true) {
-            true => PlaylistEditor::open(Edit::Again { playlist, track }, window, cx),
-            false => self.library.update(cx, |library, cx| {
-                library.add_to_playlist(playlist.id, track, cx)
+            true => PlaylistEditor::open(
+                Edit::Again {
+                    playlist,
+                    track,
+                    leaving,
+                },
+                window,
+                cx,
+            ),
+            false => self.library.update(cx, |library, cx| match leaving {
+                Some(leaving) => library.move_to_playlist(playlist.id, track, leaving, cx),
+                None => library.add_to_playlist(playlist.id, track, cx),
             }),
+        }
+    }
+
+    /// What a moved song leaves. The favorites count only on a `Shape::Saved` shelf, since a
+    /// catalog page lists every song.
+    fn leaves(&self, song: &Pin, target: &str, cx: &App) -> Option<Leaving> {
+        let library = self.library.read(cx);
+        match leaving(song.origin.as_deref()?) {
+            Leaving::Liked => {
+                (library.shape(Shelf::Streaming) == Shape::Saved).then_some(Leaving::Liked)
+            }
+            Leaving::Playlist(id) => {
+                (id != target && library.is_editable(&id)).then_some(Leaving::Playlist(id))
+            }
         }
     }
 
@@ -721,7 +757,7 @@ impl Render for SidebarLeft {
                 match this.drop_into.take() {
                     Some(playlist) => this.add_into(&playlist, &dragged.pin, window, cx),
                     None => {
-                        let pin = dragged.pin.clone();
+                        let pin = dragged.pin.clone().origin(None);
                         this.pins.update(cx, |pins, cx| pins.place(pin, gap, cx));
                     }
                 }
@@ -842,12 +878,13 @@ fn hint(cx: &App) -> AnyElement {
         .text_size(theme.text(Text::Small))
         .text_color(theme.muted_foreground)
         .text_center()
-        .child(div().min_w_0().child(i18n::lookup("nav-pin-hint", None)))
+        .child(ui::spoken("sidebar-pin-hint", i18n::lookup("nav-pin-hint", None)).min_w_0())
         .into_any_element()
 }
 
 fn vacancy() -> AnyElement {
     Vacancy::new(i18n::lookup("nav-nothing-pinned", None))
+        .spoken("sidebar-nothing-pinned")
         .icon("icons/pin.svg")
         .compact()
         .flex_none()

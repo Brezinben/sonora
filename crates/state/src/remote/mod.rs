@@ -224,10 +224,15 @@ impl Remote {
             _ => self.at,
         };
         let jumped = !moved && at.abs_diff(expected) > SEEK_SLACK;
+        let steady = !moved && !jumped && self.reported.as_ref() == Some(&state);
         self.reported = Some(state.clone());
         self.at = at;
         self.stamp = Instant::now();
 
+        // macos runs the clock
+        if cfg!(target_os = "macos") && steady {
+            return;
+        }
         self.controls.set_playback(&state, at);
         if jumped {
             self.controls.seeked(at);
