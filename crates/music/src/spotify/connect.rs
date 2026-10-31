@@ -1973,12 +1973,15 @@ fn started_by_play(play: &PlayCommand, enhanced: bool) -> Start {
             (track, occurrences(rest, false))
         }
         false => {
-            let upcoming = listed
-                .into_iter()
-                .skip_while(|id| Some(id) != track.as_ref())
-                .skip(1)
-                .take(CARRIED);
-            (track, occurrences(upcoming, false))
+            let upcoming = occurrences(
+                listed
+                    .into_iter()
+                    .skip_while(|id| Some(id) != track.as_ref())
+                    .skip(1)
+                    .take(CARRIED),
+                false,
+            );
+            (track, upcoming)
         }
     };
 
