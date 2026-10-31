@@ -299,6 +299,7 @@ impl Devices {
             .is_some_and(|listed| listed.recommended)
     }
 
+    /// The remote queue's row at `position`, where past places count readable rows only.
     fn queue_row(&self, position: QueuePosition) -> Option<&QueuedTrack> {
         let remote = &self.elsewhere()?.state;
         match position {

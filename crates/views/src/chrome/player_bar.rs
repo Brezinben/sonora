@@ -341,15 +341,11 @@ impl PlayerBar {
         let shown = self.playback.read(cx).shown_track(cx);
         let track = shown.as_ref();
         let explicit = track.is_some_and(|track| track.explicit);
-        let sonora = Sonora::global(cx);
-        let recommended = match sonora.devices.read(cx).elsewhere() {
-            Some(remote) => remote
-                .state
-                .track
-                .as_ref()
-                .is_some_and(|track| track.recommended),
-            None => sonora.queue.read(cx).recommended(QueuePosition::Current),
-        };
+        let recommended = self
+            .playback
+            .read(cx)
+            .shown_queue(cx)
+            .recommended(QueuePosition::Current, cx);
         let title = match track {
             Some(track) => div()
                 .id("now-playing-track")

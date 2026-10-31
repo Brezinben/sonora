@@ -58,8 +58,7 @@ const ACK_DELAY: Duration = Duration::from_millis(600);
 /// How long after claiming playback a report of another active device is taken to be older than
 /// the claim.
 const CLAIM_GRACE: Duration = Duration::from_secs(3);
-/// The most upcoming tracks a start carries over from the device that sent it. A smart shuffle
-/// start carries the whole enhanced playlist, so its recommendations reach past the first songs.
+/// The most upcoming tracks a start carries over from the device that sent it.
 const CARRIED: usize = 80;
 /// The recent history window Spotify includes in its player state.
 const PREVIOUS: usize = 10;
@@ -129,7 +128,8 @@ enum Incoming {
     Enhanced(Box<EnhancedRead>),
 }
 
-/// Dealer subscriptions share dispatch, errors and automatic removal of closed streams.
+/// Dealer subscriptions and one-shot reads share dispatch, errors and automatic removal of closed
+/// streams.
 type Subscriptions = SelectAll<BoxedStreamResult<Incoming>>;
 
 /// The collection smart shuffle is on for, and the songs it mixed into it.
@@ -147,7 +147,7 @@ struct Enhanced {
 struct EnhancedRead {
     ticket: u64,
     uri: String,
-    play: Option<Box<PlayCommand>>,
+    play: Option<PlayCommand>,
     read: Result<(Context, HashSet<String>), Error>,
 }
 
@@ -233,6 +233,9 @@ struct Worker {
     smart_mode: bool,
     /// Counts the commands that change what plays, so a read made for an older one is dropped.
     ticket: u64,
+    /// Whether a play command waits for its smart shuffle read. A switch of the mode meanwhile
+    /// leaves the read alone, and the play follows the mode when the read lands.
+    awaiting: bool,
     /// The reason of a put that is due but held back, and when it may go out.
     pending: Option<PutStateReason>,
     flush_at: Option<Instant>,
@@ -267,6 +270,7 @@ impl Worker {
             smart: None,
             smart_mode: false,
             ticket: 0,
+            awaiting: false,
             pending: None,
             flush_at: None,
             last_put: None,
@@ -890,7 +894,9 @@ impl Worker {
                 if smart.recommended.contains(&id) && track.provider == "context" {
                     track.provider = RECOMMENDED.to_owned();
                 }
-                if let Some((_, uid)) = smart.places.get(&id) {
+                // a hand-queued song keeps its own uid, so two entries never share one
+                let uid = smart.places.get(&id).map(|(_, uid)| uid);
+                if let Some(uid) = uid.filter(|uid| !uid.is_empty() && track.provider != "queue") {
                     track.uid = uid.clone();
                 }
             }
@@ -975,6 +981,7 @@ impl Worker {
     /// Uses a matching fresh player report to preserve queue order that transfer contexts can omit.
     fn transferred(&mut self, state: TransferState) -> Start {
         self.ticket += 1;
+        self.awaiting = false;
         self.smart_mode = recommends(&state.options.modes);
         self.smart = transferred_smart(&state);
         let now =
@@ -1083,12 +1090,17 @@ impl Worker {
         self.ack_at = Some(Instant::now() + ACK_DELAY);
     }
 
-    /// Starts what another device asked to play. A phone names the song by its uid alone and
-    /// sends no tracks along, so the playlist is read back first to find which song that is.
+    /// Starts what another device asked to play, through smart shuffle when the command or this
+    /// device's mode asks for it. A command that names the mode sets it for this device.
     fn play(&mut self, play: PlayCommand) {
         self.ticket += 1;
-        match smart_shuffled(&play, self.smart_mode) {
-            Some(uri) => self.read_enhanced(uri, Some(Box::new(play))),
+        if let Some(on) = asked_mode(&play) {
+            self.smart_mode = on;
+        }
+        let uri = smart_shuffled(&play, self.smart_mode);
+        self.awaiting = uri.is_some();
+        match uri {
+            Some(uri) => self.read_enhanced(uri, Some(play)),
             None => {
                 self.smart = None;
                 self.play_plain(play);
@@ -1140,6 +1152,9 @@ impl Worker {
     /// Switches smart shuffle for this device, and for the playlist that plays now.
     fn switch_smart(&mut self, on: bool) {
         self.smart_mode = on;
+        if self.awaiting {
+            return;
+        }
         let Some(now) = self.now.clone() else {
             return;
         };
@@ -1177,9 +1192,9 @@ impl Worker {
             .ok();
     }
 
-    /// Reads the smart shuffle collection off the worker, and hands it back through the
-    /// subscriptions so that it lands on the worker with the current ticket.
-    fn read_enhanced(&mut self, uri: String, play: Option<Box<PlayCommand>>) {
+    /// Reads the smart shuffle collection off the worker and hands it back through the
+    /// subscriptions, tagged with the ticket of the command it serves.
+    fn read_enhanced(&mut self, uri: String, play: Option<PlayCommand>) {
         let ticket = self.ticket;
         let session = self.session.clone();
         let read = async move {
@@ -1205,32 +1220,39 @@ impl Worker {
         if ticket != self.ticket {
             return log::debug!("connect: dropping a smart shuffle read a newer command replaced");
         }
+        self.awaiting = false;
+        let play = match (play, self.smart_mode) {
+            (Some(play), false) => {
+                self.smart = None;
+                return self.play_plain(play);
+            }
+            (play, _) => play,
+        };
         let (context, recommended) = match read {
             Ok(read) => read,
             Err(error) => {
                 log::warn!("connect: cannot read {} enhanced: {error}", redacted(&uri));
                 self.smart = None;
                 if let Some(play) = play {
-                    self.play_plain(*play);
+                    self.play_plain(play);
                 }
                 return;
             }
         };
-        self.smart = Some(Enhanced {
+        let enhanced = Enhanced {
             context: uri.clone(),
             places: places(&context),
             recommended,
-        });
-        let Some(Enhanced { recommended, .. }) = &self.smart else {
-            return;
         };
         if let Some(mut play) = play {
             play.context.pages = context.pages;
-            let start = started_by_play(&play, Some(recommended));
+            let start = started_by_play(&play, Some(&enhanced.recommended));
+            self.smart = Some(enhanced);
             self.out.send(Event::Command(Command::Start(start))).ok();
             return;
         }
         let Some(now) = self.now.clone() else {
+            self.smart = Some(enhanced);
             return;
         };
         if self.playing(&now).as_ref() != Some(&uri) {
@@ -1245,8 +1267,9 @@ impl Worker {
             .iter()
             .filter(|track| track.queued)
             .cloned()
-            .chain(picks(following, recommended))
+            .chain(picks(following, &enhanced.recommended))
             .collect();
+        self.smart = Some(enhanced);
         // a handover replaces the whole queue, where a queue edit keeps the old order past its
         // window and plays songs from the window a second time
         let start = Start {
@@ -2036,6 +2059,7 @@ fn started_by_play(play: &PlayCommand, enhanced: Option<&HashSet<String>>) -> St
             fastrand::shuffle(&mut rest);
             // with no song named, a shuffle starts anywhere rather than on the first song
             let track = track.or_else(|| rest.pop());
+            // the whole collection, uncapped, so the recommendations reach past the first songs
             (track, picks(rest, recommended))
         }
         None => {
@@ -2054,7 +2078,10 @@ fn started_by_play(play: &PlayCommand, enhanced: Option<&HashSet<String>>) -> St
     Start {
         state: Arc::new(Snapshot {
             context: play.context.uri.as_deref().and_then(collection),
-            track: track.map(|id| QueuedTrack::new(id, false)),
+            track: track.map(|id| QueuedTrack {
+                recommended: enhanced.is_some_and(|recommended| recommended.contains(&id)),
+                ..QueuedTrack::new(id, false)
+            }),
             index,
             upcoming,
             position: Duration::from_millis(play.options.seek_to.unwrap_or_default().into()),
@@ -2131,26 +2158,34 @@ fn collection_item(bytes: &[u8]) -> protobuf::Result<Option<Event>> {
     })
 }
 
-/// The playlist a play command asks smart shuffle for, if it does.
-/// `mode` is the smart shuffle mode of this device, which applies to a play command that does not
-/// name it.
+/// The playlist a play command starts with smart shuffle, when `mode`, this device's mode once
+/// the command set it, is on.
 fn smart_shuffled(play: &PlayCommand, mode: bool) -> Option<String> {
+    // shortcut: playlists only, as smart shuffle is offered there; extend once albums show it
+    play.context
+        .uri
+        .clone()
+        .filter(|uri| mode && uri.starts_with(PLAYLIST_PREFIX))
+}
+
+/// The smart shuffle mode a play command names: on through the lens or its options, off through
+/// options that name other modes, or `None` when it says nothing.
+fn asked_mode(play: &PlayCommand) -> Option<bool> {
     let lens = play
         .context
         .url
         .as_deref()
         .is_some_and(|url| url.ends_with(LENS));
-    let mode = mode
-        || play
-            .options
-            .player_options_override
-            .as_ref()
-            .is_some_and(|options| recommends(&options.modes));
-    // shortcut: playlists only, as smart shuffle is offered there; extend once albums show it
-    play.context
-        .uri
-        .clone()
-        .filter(|uri| (lens || mode) && uri.starts_with(PLAYLIST_PREFIX))
+    let modes = play
+        .options
+        .player_options_override
+        .as_ref()
+        .map(|options| &options.modes)
+        .filter(|modes| !modes.is_empty());
+    match (lens, modes) {
+        (true, _) => Some(true),
+        (false, modes) => modes.map(recommends),
+    }
 }
 
 /// Whether player modes say smart shuffle is on.
