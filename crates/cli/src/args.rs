@@ -12,7 +12,7 @@ use clap_complete::Shell;
 
 use crate::commands::{
     CommandType, Format, Item, Kind, Level, Local, PlaybackCommand, ProviderCommand, QueueCommand,
-    Repeat, Request, SearchQuery, Switch,
+    Repeat, Request, SearchQuery, Switch, Watch,
 };
 use crate::item;
 
@@ -80,6 +80,13 @@ enum Sub {
     },
     /// Print the current track as JSON.
     Current,
+    /// Print the current track as JSON again every time it changes, one line each, until
+    /// stopped.
+    Watch {
+        /// Also print a line every second while a track plays, for a clock.
+        #[arg(long)]
+        position: bool,
+    },
     /// Print the volume, or set it: `50`, `+5`, `-5`.
     Volume {
         /// A level from 0 to 100, or a step from the current one.
@@ -269,6 +276,7 @@ fn into_command(args: Args, line: &mut Command) -> Result<CommandType, clap::Err
         Sub::Prev => play(PlaybackCommand::Previous),
         Sub::Seek { percent } => play(PlaybackCommand::Seek(percent)),
         Sub::Current => play(PlaybackCommand::CurrentTrack),
+        Sub::Watch { position } => Request::Watch(Watch { position }),
         Sub::Volume { level } => play(PlaybackCommand::Volume(level)),
         Sub::Shuffle { switch } => play(PlaybackCommand::Shuffle(switch.map(Switch::from))),
         Sub::Repeat { repeat } => play(PlaybackCommand::Repeat(repeat.map(Repeat::from))),

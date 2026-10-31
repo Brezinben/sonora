@@ -1,23 +1,28 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use cli::commands::{
     self, Item, Kind, Level, PlaybackCommand, ProviderCommand, QueueCommand, Request, SearchQuery,
-    Switch,
+    Switch, Watch,
 };
 use cli::wire::{self, Current, Failure, Reply, State, Value};
 use futures::future;
 use gpui::{App, Context, Entity, Subscription, Task};
 use music::link::Linked;
 use music::{Album, MediaKind, MusicApi, MusicProvider, Playlist, Track};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::search::{self, Catalog};
 use crate::{
     Hit, Io, Library, Origin, Playback, PlaybackState, QueuePlacement, Repeat, Session,
     SessionState, Shelf, Sonora, join, noted,
 };
+
+/// How often a watch looks again on its own, for the position it reports and for a change made
+/// somewhere that does not go through `Playback`, such as the volume of a steered device.
+const WATCH_TICK: Duration = Duration::from_secs(1);
 
 /// What the three searches of a query answered: songs, albums and playlists.
 type Found = (
@@ -38,7 +43,21 @@ pub struct Control {
     issued: u64,
     /// A provider switch waiting for the session to settle before it answers.
     switching: Option<Switching>,
+    /// Command lines following what plays, as `sonora watch`.
+    watchers: Vec<Watcher>,
+    /// What keeps the watchers told, held only while there are any.
+    watching: Option<(Subscription, Task<()>)>,
     _session: Subscription,
+}
+
+/// A `sonora watch` and what it was last told.
+struct Watcher {
+    sink: mpsc::UnboundedSender<Reply>,
+    /// Whether a new position alone is worth a line.
+    position: bool,
+    /// The state last sent, with the position left out unless `position`; `None` before the
+    /// first line.
+    told: Option<Option<Current>>,
 }
 
 /// A switch to the provider `slug`, answered once the session lands somewhere.
@@ -90,7 +109,63 @@ impl Control {
             pending: HashMap::new(),
             issued: 0,
             switching: None,
+            watchers: Vec::new(),
+            watching: None,
             _session,
+        }
+    }
+
+    /// Follows what plays for a `sonora watch`: what plays now at once, then again on every
+    /// change, until the command line hangs up and `sink` closes.
+    pub fn watch(
+        &mut self,
+        watch: Watch,
+        sink: mpsc::UnboundedSender<Reply>,
+        cx: &mut Context<Self>,
+    ) {
+        self.watchers.push(Watcher {
+            sink,
+            position: watch.position,
+            told: None,
+        });
+        if self.watching.is_none() {
+            let observed = cx.observe(&self.playback, |this, _, cx| this.tell(cx));
+            let ticking = cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor().timer(WATCH_TICK).await;
+                    if this.update(cx, |this, cx| this.tell(cx)).is_err() {
+                        break;
+                    }
+                }
+            });
+            self.watching = Some((observed, ticking));
+        }
+        self.tell(cx);
+    }
+
+    /// Sends what plays to every watcher it changed for since its last line, and lets go of the
+    /// ones that hung up. With none left, nothing follows playback any more.
+    fn tell(&mut self, cx: &mut Context<Self>) {
+        let now = current(self.playback.read(cx), cx);
+        self.watchers.retain_mut(|watcher| {
+            let seen = match watcher.position {
+                true => now.clone(),
+                false => now.clone().map(|current| Current {
+                    position: 0,
+                    ..current
+                }),
+            };
+            if watcher.told.as_ref() == Some(&seen) {
+                return !watcher.sink.is_closed();
+            }
+            watcher.told = Some(seen);
+            watcher
+                .sink
+                .send(Reply::Value(Value::Current(now.clone())))
+                .is_ok()
+        });
+        if self.watchers.is_empty() {
+            self.watching = None;
         }
     }
 
@@ -109,6 +184,8 @@ impl Control {
             Request::Queue(command) => return self.queue(command, reply, cx),
             Request::Provider(command) => return self.provider(command, reply, cx),
             Request::Search(query) => return self.search(query, reply, cx),
+            // a watch is answered as a stream, by `watch`, and never reaches here
+            Request::Watch(_) => Reply::Failed(Failure::Malformed),
         };
         reply.send(answer).ok();
     }

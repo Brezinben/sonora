@@ -21,6 +21,7 @@ sonora search crescent shaped depression | fzf | awk '{print $NF}' | xargs sonor
 | `sonora next` / `prev` | Skip to the next track, or go back to the previous one |
 | `sonora seek <0-100>` | Jump to a point of the current track, in percent |
 | `sonora current` | Print what plays now as JSON, or `null` when nothing is loaded |
+| `sonora watch [--position]` | Print what plays again on every change, one line of JSON each, until stopped |
 | `sonora volume [N\|+N\|-N]` | Print the volume, set it from 0 to 100, or step it |
 | `sonora shuffle [on\|off\|toggle]` | Print shuffle, or switch it |
 | `sonora repeat [off\|all\|one]` | Print repeat, or set it |
@@ -107,6 +108,21 @@ sonora search daft punk --json | jq -r '.[0].link'
 
 `state` is `playing`, `paused`, `loading` or `idle`. Times are whole seconds, the volume a percent.
 
+### Watching
+
+`watch` prints what plays as `current` does, then again on every change of the track, the state,
+the volume, shuffle or repeat, one line of JSON each, for a status bar to follow without asking
+every second. `--position` also prints a line every second while a track plays, for a clock.
+
+```sh
+sonora watch | jq --unbuffered -r '.track.title // ""'
+sonora watch --position > nowplaying.json    # read by a stream overlay
+```
+
+A line is `null` while nothing is loaded. It runs until stopped, and ends with code 0 when Sonora
+quits. With nothing reading its lines any more, as after `| head -1`, it ends at its next line, as
+`tail -f` does, so within a second with `--position` and at the next change without.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -157,12 +173,14 @@ A Flatpak Sonora is reached from inside its sandbox, so run commands through it:
 
 ### Protocol
 
-One line of JSON each way: the request, then the reply.
+One line of JSON each way: the request, then the reply. A watch is the one exception: its reply
+comes again on every change, on the same connection, until the command line hangs up.
 
 ```
 → {"v":1,"body":{"playback":"next"}}
 → {"v":1,"body":{"playback":{"volume":{"by":5}}}}
 → {"v":1,"body":{"queue":{"add":[{"search":{"text":"one more time","kind":"song"}}]}}}
+→ {"v":1,"body":{"watch":{"position":false}}}
 ← {"v":1,"body":"done"}
 ← {"v":1,"body":{"value":{"volume":80}}}
 ← {"v":1,"body":{"failed":{"no-account":"Deezer"}}}
@@ -209,5 +227,3 @@ The crate knows nothing of GPUI or of the app's state, so it can be built and re
 - **Messages through Fluent.** Errors, table headers, statuses and `--help` are in English in
   the code for now. They move to `assets/i18n/en-US/main.ftl`, in the language the running
   Sonora uses or, for `--help` with none running, the system's.
-- **`sonora watch`.** One line of JSON on every change of what plays, for status bars to follow
-  without asking every second, and for a stream overlay to read from a file.
