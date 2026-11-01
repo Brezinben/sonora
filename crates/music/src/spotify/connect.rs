@@ -104,7 +104,6 @@ const ITEM_REMOVED: u32 = 6 << 3;
 const JAM_TOPIC: &str = "social-connect/v2/session_update";
 const JAM_JOIN: &str = "/social-connect/v2/sessions/join";
 const JAM_CURRENT: &str = "/social-connect/v2/sessions/current";
-const JAM_LEAVE: &str = "/social-connect/v2/sessions/leave";
 const JAM_START: &str = "/social-connect/v2/sessions/current_or_new";
 const JAM_INFO: &str = "/social-connect/v2/sessions/info";
 const JAM_END: &str = "/social-connect/v3/sessions";
@@ -459,23 +458,27 @@ impl Worker {
     /// Leaves the group session. The owner ends it for everyone instead, since leaving would
     /// only hand it on. A session that cannot be read is left as it is, since it may be owned.
     async fn leave(&mut self) {
-        let owned = match Self::current_session(&self.session).await {
-            Ok(Some(read)) if read.jam.owner && is_path_id(&read.id, "_-") => Some(read.id),
+        let id = match Self::current_session(&self.session).await {
+            Ok(Some(read)) if is_path_id(&read.id, "_-") => Some((read.id, read.jam.owner)),
             Ok(_) => None,
             Err(error) => {
                 log::warn!("connect: cannot read the jam to leave it: {error}");
                 return self.leave_failed().await;
             }
         };
-        let answer = match owned {
-            Some(id) => {
-                let endpoint = format!(
-                    "{JAM_END}/{id}?local_device_id={}",
-                    self.session.device_id()
-                );
+        let Some((id, owner)) = id else {
+            return self.leave_failed().await;
+        };
+        let device = self.session.device_id();
+        let answer = match owner {
+            true => {
+                let endpoint = format!("{JAM_END}/{id}?local_device_id={device}");
                 jam_request(&self.session, &Method::DELETE, &endpoint).await
             }
-            None => jam_request(&self.session, &Method::POST, JAM_LEAVE).await,
+            false => {
+                let endpoint = format!("{JAM_END}/{id}/leave?local_device_id={device}");
+                jam_request(&self.session, &Method::POST, &endpoint).await
+            }
         };
         match answer {
             Ok(_) => {
@@ -1108,21 +1111,19 @@ impl Worker {
         }
     }
 
-    /// Starts a play command from the pages it carries, read back first when it names the song
-    /// by uid alone.
+    /// Starts a play command from the pages it carries. A phone names the song by its uid alone,
+    /// and a jam names a context Sonora cannot read itself. Both send no tracks along, so the
+    /// context is read back first to find the song and what follows it.
     fn play_plain(&self, mut play: PlayCommand) {
-        let uid = play
-            .options
-            .skip_to
-            .as_ref()
-            .filter(|skip| skip.track_uri.as_deref().is_none_or(str::is_empty))
-            .and_then(|skip| skip.track_uid.clone())
-            .filter(|uid| !uid.is_empty());
         let uri = play.context.uri.clone();
         let out = self.out.clone();
         let session = self.session.clone();
         let blind = play.context.pages.iter().all(|page| page.tracks.is_empty());
-        let (Some(_), Some(uri), true) = (uid, uri, blind) else {
+        let by_uid = play.options.skip_to.as_ref().is_some_and(|skip| {
+            skip.track_uri.as_deref().is_none_or(str::is_empty)
+                && skip.track_uid.as_deref().is_some_and(|uid| !uid.is_empty())
+        });
+        let (Some(uri), true) = (uri, blind && (by_uid || collection_is_unread(&play))) else {
             out.send(Event::Command(Command::Start(started_by_play(&play, None))))
                 .ok();
             return;
@@ -1359,8 +1360,12 @@ impl Worker {
                 self.update_context(update.context);
                 Vec::new()
             }
-            Wire::Unknown(_) => {
-                log::debug!("connect: unsupported player command");
+            Wire::Unknown(value) => {
+                // the field names only, since a transfer carries the listener's whole state
+                let fields = value
+                    .as_object()
+                    .map(|object| object.keys().collect::<Vec<_>>());
+                log::debug!("connect: unsupported player command, it carries {fields:?}");
                 return None;
             }
         })
@@ -2010,6 +2015,15 @@ fn started_by_transfer(state: TransferState, now: i64) -> Start {
         preserve_queue: true,
         restart: true,
     }
+}
+
+/// Whether a play command names a context that Sonora has no collection to read back, such as a
+/// jam, so its tracks can only come from the context itself.
+fn collection_is_unread(play: &PlayCommand) -> bool {
+    play.context
+        .uri
+        .as_deref()
+        .is_some_and(|uri| collection(uri).is_none())
 }
 
 /// What a play command from another device asks for.

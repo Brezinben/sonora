@@ -359,15 +359,13 @@ impl Aside {
         self.titled = false;
     }
 
-    pub(crate) fn tab(&self) -> SideTab {
-        self.tab
-    }
-
     /// Whether the pointer is parked on the panel's scrollbar. Fullscreen
     /// reads this to keep its chrome awake while the reader holds it.
     pub(crate) fn scrollbar_active(&self, cx: &App) -> bool {
         match self.tab {
             SideTab::Lyrics => self.verse_bar.read(cx).hovered(),
+            // the members are never drawn here, but by `Members`
+            SideTab::Members => false,
             SideTab::Queue => self.scrollbar.read(cx).hovered(),
         }
     }
@@ -844,6 +842,7 @@ impl Aside {
                     match self.tab {
                         SideTab::Queue => t!("queue-title"),
                         SideTab::Lyrics => t!("lyrics-title"),
+                        SideTab::Members => t!("members-title"),
                     },
                     cx,
                 ))
@@ -1977,6 +1976,7 @@ impl Render for Aside {
             .aria_label(match self.tab {
                 SideTab::Queue => t!("queue-title"),
                 SideTab::Lyrics => t!("lyrics-title"),
+                SideTab::Members => t!("members-title"),
             })
             .flex()
             .flex_col()
