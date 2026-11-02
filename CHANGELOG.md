@@ -68,6 +68,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Music, Deezer, Tidal, Navidrome 0.61 or later and local files.
 - Deezer's Home shows every section the Deezer web player shows, and its mixes, flows and
   channels open in Sonora.
+- A sparkle in the queue and the player bar marks the songs that Spotify's smart shuffle
+  recommends.
 
 ### Changed
 
@@ -101,6 +103,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - System media controls, Discord and album pages show Spotify covers at 640 pixels instead of 300.
 - Lyrics that mark thousandths of a second with a colon, such as `[00:01:050]`, stay on time
   instead of running almost half a second late.
+- Smart shuffle from the Spotify app now plays its recommended songs on Sonora through Spotify
+  Connect, and stays on when you switch it on while Sonora plays.
+- Playback handed over from another device through Spotify Connect starts at once, and songs
+  Sonora has not read yet join the queue as soon as they load.
 
 ## [0.45.0] - 2026-10-27
 
