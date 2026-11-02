@@ -1085,6 +1085,7 @@ toast-playlist-removed = Playlist retirée de votre bibliothèque
 toast-playlist-visibility = Visibilité de la playlist modifiée
 toast-track-added = Ajouté à { $name }
 toast-track-removed = Retiré de { $name }
+toast-track-moved = Déplacé vers { $name }
 toast-track-removed-unnamed = Retiré de la playlist
 toast-playlist-failed = Cette modification n'a pas pu être enregistrée
 toast-playlist-busy = Une autre modification est encore en cours
